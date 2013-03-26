@@ -22,30 +22,14 @@ struct card { suit: card_suit,
 // -- Remove the bottom of the stack (i.e. "cheat"), returning a tuple
 //    of the removed card and the new, potentially empty stack
 
-/*
-// [c1, ..., cN], cX -o [cX, c1, ..., cN]
-fn place_top(pile: Option<~card>, newcard: ~card) -> ~card;
-
-// [c1, ..., cN], cX -o [c1, ..., cN, cX]
-fn place_bot(pile: Option<~card>, newcard: ~card) -> ~card;
-
-// [c1, c2, ..., cN] -o (c1, [c2, ..., cN])
-fn pop_top(pile: ~card) -> (~card, Option<~card>);
-
-// [c1, ..., cN-1, cN] -o (Some(cN), [c1, ..., cN-1])
-fn pop_bot(pile: ~card) -> (~card, Option<~card>)
-
-*/
-
-
-// [c1, ..., cN], cX -o [cX, c1, ..., cN]
+// [c1, ..., cN], cX -> [cX, c1, ..., cN]
 fn place_top(pile: Option<~card>, newcard: ~card) -> ~card {
     let mut newcard = newcard;
     newcard.next = pile;
     newcard
 }
 
-// [c1, ..., cN], cX -o [c1, ..., cN, cX]
+// [c1, ..., cN], cX -> [c1, ..., cN, cX]
 fn place_bot(pile: Option<~card>, newcard: ~card) -> ~card {
     place_bot_rec(pile, newcard)
 }
@@ -74,7 +58,7 @@ fn place_bot_rec(pile: Option<~card>, newcard: ~card) -> ~card {
 //   -- fn place_bot(~Option<~card>, ~card) -> ~card  ?
 
 
-// [c1, c2, ..., cN] -o (c1, [c2, ..., cN])
+// [c1, c2, ..., cN] -> (c1, [c2, ..., cN])
 fn pop_top(pile: ~card) -> (~card, Option<~card>) {
     let mut c = pile;
     let mut rest = None;
@@ -83,7 +67,7 @@ fn pop_top(pile: ~card) -> (~card, Option<~card>) {
 }
 
 
-// [c1, ..., cN-1, cN] -o (Some(cN), [c1, ..., cN-1])
+// [c1, ..., cN-1, cN] -> (Some(cN), [c1, ..., cN-1])
 fn pop_bot(pile: ~card) -> (~card, Option<~card>) {
     fn recur(pile: ~card) -> (~card, Option<~card>) {
         let mut pile = pile;
