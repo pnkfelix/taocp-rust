@@ -126,24 +126,24 @@ fn make_hand() -> ~card {
 }
 
 fn main() {
-    let mut hand : ~card = make_hand();
-    hand.report(~"initial hand: ");
+    let hand : ~card = make_hand();
+    hand.report("initial hand: ");
     let AceD = ~card{ suit: diamonds, rank: 1, next: None };
-    AceD.report(~"place top: ");
+    AceD.report("place top: ");
     let hand = place_top(Some(hand), AceD);
-    hand.report(~"new hand: ");
+    hand.report("new hand: ");
     let SixD = ~card{ suit: diamonds, rank: 6, next: None };
-    SixD.report(~"place bot: ");
+    SixD.report("place bot: ");
     let hand = place_bot(Some(hand), SixD);
-    hand.report(~"new hand: ");
+    hand.report("new hand: ");
     let (top, rest) = pop_top(hand);
-    top.report(~"popped top: ");
+    top.report("popped top: ");
     let hand = rest.unwrap();
-    hand.report(~"new hand: ");
+    hand.report("new hand: ");
     let (bot, rest) = pop_bot(hand);
-    bot.report(~"popped bot: ");
+    bot.report("popped bot: ");
     let hand = rest.unwrap();
-    hand.report(~"new hand: ");
+    hand.report("new hand: ");
 }
 
 // Below are "just" some notation niceties that should not effect
@@ -151,8 +151,8 @@ fn main() {
 
 impl ToStr for card_suit {
     fn to_str(&self) -> ~str {
-        match self { &spades   => ~"\u2660", &hearts   => ~"\u2661",
-                     &diamonds => ~"\u2662", &clubs    => ~"\u2663" } }
+        match self { &spades   => ~"\u2664", &hearts   => ~"\u2665",
+                     &diamonds => ~"\u2666", &clubs    => ~"\u2667" } }
 }
 
 fn rank_to_str(r:u8) -> ~str {
@@ -168,7 +168,7 @@ fn rank_to_str(r:u8) -> ~str {
 
 impl card {
     fn rank_to_str(&self) -> ~str { rank_to_str(self.rank) }
-    fn report(&self, prefix: ~str) { io::println(prefix + self.to_str()); }
+    fn report(&self, prefix: &str) { io::println(fmt!("%s%s", prefix, self.to_str())); }
 }
 
 impl ToStr for card {
