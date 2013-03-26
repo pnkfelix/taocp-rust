@@ -31,31 +31,71 @@ fn place_top(pile: Option<~card>, newcard: ~card) -> ~card {
 
 // [c1, ..., cN], cX -> [c1, ..., cN, cX]
 fn place_bot(pile: Option<~card>, newcard: ~card) -> ~card {
-    place_bot_rec(pile, newcard)
+    place_bot_rec_1(pile, newcard)
 }
 
-fn place_bot_rec(pile: Option<~card>, newcard: ~card) -> ~card {
+// Q1, Option 1:
+fn place_bot_rec_1(pile: Option<~card>, newcard: ~card) -> ~card {
     fn recur(pile: Option<~card>, newcard: ~card) -> ~card {
         match pile {
             None => newcard,
-            Some(cards) => {
-                let mut cards = cards;
-                cards.next = Some(recur(copy cards.next, newcard)); // FIXME Q1.
-                cards 
+            Some(~card {suit, rank, next}) => {
+                let next = Some(recur(next, newcard)); // FIXME Q1.
+                ~card {suit: suit, rank: rank, next: next}
             }
         }
     }
     recur(pile, newcard)
 }
 
+// Q1, Option 2:
+fn place_bot_rec_2(pile: Option<~card>, newcard: ~card) -> ~card {
+    fn recur(pile: &mut ~card, newcard: ~card) {
+        match pile.next {
+            None => {
+                pile.next = Some(newcard);
+            }
+            Some(ref mut next) => {
+                recur(next, newcard);
+            }
+        }
+    }
+    match pile {
+        None => newcard,
+        Some(c) => {
+            let mut card = c;
+            recur(&mut card, newcard);
+            card
+        }
+    }
+}
+
 // Question Q1: How can I change the code above to get rid of the
 //   `copy`; I "just" want to walk down the list...
+//
+// * Above are two versions.  A version using a loop could be done but I
+//   believe it is blocked by borrow checker bugs that would be fixed
+//   with my rewrite.
 
 // Question Q2: What interface "makes most sense" for place_bot
 //   function?  In particular, what form should the pile take:
 //   -- fn place_bot(Option<~card>, ~card) -> ~card,
 //   -- fn place_bot(&Option<~card>, ~card) -> ~card, or
 //   -- fn place_bot(~Option<~card>, ~card) -> ~card  ?
+//
+// * I would use `Option<~card>` if you want to keep the code more-or-less
+//   as you wrote it.  Another appealing option would be something like
+//
+//     fn append(list: &mut Option<~card>, ~card)
+//
+//   This version would overwrite the list in place. Part of the
+//   appeal of this is that it would allow you to append to lists
+//   without the function taking ownership of them, which is sometimes
+//   needed.  We can only pass by value when the value resides in an
+//   owned location, but someone who possesed an `&mut Option<~card>`
+//   could invoke `append()`.  The difference is that, in the
+//   `append()` version, there is never a moment where the list has
+//   been moved into the callee.
 
 
 // [c1, c2, ..., cN] -> (c1, [c2, ..., cN])
@@ -85,8 +125,37 @@ fn pop_bot(pile: ~card) -> (~card, Option<~card>) {
     recur(pile)
 }
 
+fn pop_bot_1(pile: ~card) -> (~card, Option<~card>) {
+    let mut pile = Some(pile);
+    let bot = recur(&mut pile).get();
+    return (bot, pile);
+
+    fn recur(ptr: &mut Option<~card>) -> Option<~card> {
+        let mut result;
+
+        match ptr {
+            &None => {
+                return None;
+            }
+            &Some(~card {next: ref mut n, _}) => {
+                result = recur(n);
+            }
+        }
+
+        if result.is_none() {
+            *ptr <-> result;
+        }
+
+        return result;
+    }
+}
+
 // Question Q3: Is there a way to write pop_bot so it only modifies
 //   the linked-list *once*, at next-to-last cons-cell in the series?
+//
+// * Yes, see pop_bot_1 above.  It feels a bit awkward though,
+//   particularly the call to `get()`.  You could write this
+//   iteratively, I think, under the new borrow checker rules.
 
 // Question Q4: I had a really hard time coming up with even the
 //   solution above.  (I had spent much time last night struggling
@@ -95,7 +164,16 @@ fn pop_bot(pile: ~card) -> (~card, Option<~card>) {
 //   lending `pile`, as I had originally done when I wrote it
 //   as `match pile.next { ... }`.  Any suggestions for heuristics
 //   or design-principles for attacking such problems here?
-
+//
+// * Not sure.  I think that (1) I need to land the borrow checker rewrite;
+//   (2) it probably is worth improving the liveness analysis to consider
+//   partial moves and replacements; and (3) I guess we need to try and
+//   come up with a better answer. ;)
+//
+//   I guess the key point is that you can use `&mut` to drill down into
+//   your structure, but when you do that, you lose access to the outer
+//   levels until your `&mut` pointer expires.  But that is sufficient
+//   for these sorts of problems, generally speaking.
 
 
 
@@ -118,13 +196,17 @@ fn main() {
     hand.report("new hand: ");
     let SixD = ~card{ suit: diamonds, rank: 6, next: None };
     SixD.report("place bot: ");
-    let hand = place_bot(Some(hand), SixD);
+    let hand = place_bot_rec_1(Some(hand), SixD);
+    hand.report("new hand: ");
+    let SevenD = ~card{ suit: diamonds, rank: 7, next: None };
+    SevenD.report("place bot: ");
+    let hand = place_bot_rec_2(Some(hand), SevenD);
     hand.report("new hand: ");
     let (top, rest) = pop_top(hand);
     top.report("popped top: ");
     let hand = rest.unwrap();
     hand.report("new hand: ");
-    let (bot, rest) = pop_bot(hand);
+    let (bot, rest) = pop_bot_1(hand);
     bot.report("popped bot: ");
     let hand = rest.unwrap();
     hand.report("new hand: ");
