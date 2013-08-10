@@ -1,9 +1,9 @@
 mod horn_clauses {
     use std::hashmap;
+    use std::util;
 
     struct prop_id { idx: uint }
     struct clause_id { idx: uint }
-    struct hyp_id { idx: uint }
 
     // represents a clause c of the form: u_1 /\ ... /\ u_k => v,
     // where k >= 0
@@ -14,12 +14,12 @@ mod horn_clauses {
 
     struct prop {
         truth: bool, // true if p known to be true; otherwise 
-        last: Option<hyp_id>
+        last: Option<~hypothesis>
     }
 
     struct hypothesis {
         clause: clause_id, // clause for which this appears on this left
-        prev: Option<hyp_id> // previous hypothesis containing propostion of this.
+        prev: Option<~hypothesis> // previous hypothesis containing propostion of this.
     }
 
     fn clause_to_str<V:ToStr>(assumes: &[V], result: &V) -> ~str {
@@ -29,7 +29,7 @@ mod horn_clauses {
 
     pub fn core_computation<V:Eq+Hash+IterBytes+Clone+ToStr>(propvars: ~[V],
                                                              input_clauses: ~[(~[V], V)])
-        -> (~[prop], ~[clause], ~[hypothesis]) {
+        -> (~[prop], ~[clause]) {
         type PI = hashmap::HashMap<V, prop_id>;
         type CI = hashmap::HashMap<(~[V], V), clause_id>;
         fn new_map<K:Eq+IterBytes, V>() -> hashmap::HashMap<K, V> { hashmap::HashMap::new() }
@@ -62,7 +62,6 @@ mod horn_clauses {
 
         let mut clauses = ~[];
         let mut cmap = new_map();
-        let mut hypos = ~[];
         {
             for i in input_clauses.iter() {
                 let (ref u_k, ref v) = *i;
@@ -78,10 +77,10 @@ mod horn_clauses {
                 } else {
                     for u_j in u_k.iter() {
                         let pi = pmap.get(u_j);
-                        let hi = hyp_id{ idx: hypos.len() };
-                        let h = hypothesis { clause: ci, prev: props[pi.idx].last };
-                        props[pi.idx].last = Some(hi);
-                        hypos.push(h);
+                        let mut l = None;
+                        util::swap(&mut props[pi.idx].last, &mut l);
+                        let h = ~hypothesis { clause: ci, prev: l };
+                        props[pi.idx].last = Some(h);
                     }
                 }
             }
@@ -92,20 +91,21 @@ mod horn_clauses {
         //     been set to 1.  Otherwise set s <- s - 1, p <- S_s,
         //     and h <- LAST(p).
         if (s.len() == 0) {
-            return (props, clauses, hypos);
+            return (props, clauses);
         }
         let mut p = s.pop();
-        let mut h = props[p.idx].last;
+        let mut h = None;
+        util::swap(&mut props[p.idx].last, &mut h);
 
         loop {
             // C3. [Done with hypotheses?] If h = Λ, return to C2.
             let hi = match h {
                 None => {
                     if (s.len() == 0) {
-                        return (props, clauses, hypos);
+                        return (props, clauses);
                     }
                     p = s.pop();
-                    h = props[p.idx].last;
+                    util::swap(&mut props[p.idx].last, &mut h);
                     loop;
                 }
                 Some(hi) => hi
@@ -114,7 +114,7 @@ mod horn_clauses {
             // C4. [Validate h.] Set c <- CLAUSE(h) and COUNT(c) <- COUNT(c) - 1.
             //     If the new value of COUNT(c) is still nonzero, go to step C6.
 
-            let ci = hypos[hi.idx].clause;
+            let ci = hi.clause;
             clauses[ci.idx].count -= 1;
 
             if clauses[ci.idx].count == 0 {
@@ -128,7 +128,7 @@ mod horn_clauses {
             }
 
             // C6. [Loop on h.] Set h <- PREV(h) and return to C3.
-            h = hypos[h.unwrap().idx].prev;
+            h = hi.prev;
         }
     }
 }
