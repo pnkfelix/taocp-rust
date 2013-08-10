@@ -1,4 +1,13 @@
-default: run-ll # run-ex
+default: run-bool # run-ll2 # run-ex
+
+run-bool: bool_formulas.bin
+	./$<
+
+run-langford: langford.bin
+	./$<
+
+run-ll2: llist2.bin
+	./$<
 
 run-ll: llist.bin
 	./$<
