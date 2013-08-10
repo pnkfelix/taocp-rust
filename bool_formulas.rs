@@ -134,10 +134,20 @@ mod horn_clauses {
 }
 
 fn main() {
-    let ret = horn_clauses::core_computation(~["a", "b", "c", "d"],
+    let ret = horn_clauses::core_computation(~["a", "b", "c", "d",
+                                               "e", "f", "g", "h",
+                                               "i", "j", "k", "l",
+                                               ],
                                              ~[(~[], "a"),
                                                (~["d"], "b"),
                                                (~["a", "b"], "c"),
-                                               (~["a"], "b")]);
+                                               (~["a"], "b"),
+                                               (~["e", "f"], "g"),
+                                               (~["g"], "h"),
+                                               (~["h"], "f"),
+                                               (~[], "e"),
+                                               (~["e"], "h"),
+                                               (~["a", "a"], "i"),
+                                               ]);
     println(fmt!("Hello World: %?", ret));
 }
