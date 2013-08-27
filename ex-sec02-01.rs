@@ -18,7 +18,7 @@ struct card {
     suit: card_suit,
     rank: u8, // 1..13
     next: Option<~card>,
-    title: [char * 5]
+    title: [char, ..5]
         // contents of title field are derivable from those above it,
         // but I am more interested in trying to be faithful to
         // Knuth's presentation here.

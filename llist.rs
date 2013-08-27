@@ -102,7 +102,7 @@ fn place_bot_rec_2(pile: Option<~card>, newcard: ~card) -> ~card {
 fn pop_top(pile: ~card) -> (~card, Option<~card>) {
     let mut c = pile;
     let mut rest = None;
-    c.next <-> rest;
+    std::util::swap(&mut rest, &mut c.next);
     (c, rest)
 }
 
@@ -112,7 +112,8 @@ fn pop_bot(pile: ~card) -> (~card, Option<~card>) {
     fn recur(pile: ~card) -> (~card, Option<~card>) {
         let mut pile = pile;
         let mut remaining = None;
-        pile.next <-> remaining;
+        std::util::swap(&mut remaining, &mut pile.next);
+        pile.next = None;
         match remaining {
             None => (pile, None),
             Some(cards) => {
@@ -125,30 +126,39 @@ fn pop_bot(pile: ~card) -> (~card, Option<~card>) {
     recur(pile)
 }
 
+fn pop_bot_2(pile: ~card) -> (~card, Option<~card>) {
+    use std::util;
+    let top = Some(pile);
+    let mut cursor : &Option<~card> = &top;
+    loop {
+        match cursor {
+            &Some(~card{ next: None, suit: _, rank: _ }) =>
+                break,
+            &Some(~card{ next: ref next, suit: _, rank: _ }) =>
+                cursor = next
+        }
+    }
+    let mut last : Option<~card> = None;
+    util::swap(cursor, &mut last);
+    return (last.unwrap(), Some(pile))
+}
+
+/* // (pop_bot_1 no longer type checks)
 fn pop_bot_1(pile: ~card) -> (~card, Option<~card>) {
-    let mut pile = Some(pile);
-    let bot = recur(&mut pile).get();
-    return (bot, pile);
-
-    fn recur(ptr: &mut Option<~card>) -> Option<~card> {
-        let mut result;
-
-        match ptr {
-            &None => {
-                return None;
+    match pile.next {
+        None => return (pile, None),
+        Some(_) => {
+            let mut next_to_last = pile;
+            while next_to_last.next.unwrap().next.is_some() {
+                next_to_last = next_to_last.next.unwrap();
             }
-            &Some(~card {next: ref mut n, _}) => {
-                result = recur(n);
-            }
+            let last = next_to_last.next.unwrap();
+            next_to_last.next = None;
+            return (last, Some(pile));
         }
-
-        if result.is_none() {
-            *ptr <-> result;
-        }
-
-        return result;
     }
 }
+*/
 
 // Question Q3: Is there a way to write pop_bot so it only modifies
 //   the linked-list *once*, at next-to-last cons-cell in the series?
@@ -206,7 +216,7 @@ fn main() {
     top.report("popped top: ");
     let hand = rest.unwrap();
     hand.report("new hand: ");
-    let (bot, rest) = pop_bot_1(hand);
+    let (bot, rest) = pop_bot(hand);
     bot.report("popped bot: ");
     let hand = rest.unwrap();
     hand.report("new hand: ");
@@ -234,7 +244,7 @@ fn rank_to_str(r:u8) -> ~str {
 
 impl card {
     fn rank_to_str(&self) -> ~str { rank_to_str(self.rank) }
-    fn report(&self, prefix: &str) { io::println(fmt!("%s%s", prefix, self.to_str())); }
+    fn report(&self, prefix: &str) { println(fmt!("%s%s", prefix, self.to_str())); }
 }
 
 impl ToStr for card {
