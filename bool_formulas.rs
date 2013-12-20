@@ -35,7 +35,7 @@ mod horn_clauses {
         fn new_map<K:Eq+IterBytes, V>() -> hashmap::HashMap<K, V> { hashmap::HashMap::new() }
         for c in input_clauses.iter() {
             let &(ref assumes, ref result) = c;
-            println(fmt!("%s", clause_to_str(*assumes, result)));
+            println(format!("{:s}", clause_to_str(*assumes, result)));
         }
         let mut s = ~[];
 
@@ -106,7 +106,7 @@ mod horn_clauses {
                     }
                     p = s.pop();
                     util::swap(&mut props[p.idx].last, &mut h);
-                    loop;
+                    continue;
                 }
                 Some(hi) => hi
             };
@@ -149,5 +149,5 @@ fn main() {
                                                (~["e"], "h"),
                                                (~["a", "a"], "i"),
                                                ]);
-    println(fmt!("Hello World: %?", ret));
+    println(format!("Hello World: {:?}", ret));
 }
