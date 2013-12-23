@@ -32,13 +32,11 @@ trait Square<Elem> {
     }
 }
 
-struct LGSquare<L, G, Elem> {
-    priv l_alphabet: ~[L],
-    priv g_alphabet: ~[G],
+struct LGSquare<Elem> {
     priv contents: ~[Elem] // invariant: length is n^2 for some n.
 }
 
-impl<L,G,Elem> Square<Elem> for LGSquare<L, G, Elem> {
+impl<Elem> Square<Elem> for LGSquare<Elem> {
     fn contents<'a>(&'a self) -> &'a [Elem] {
         self.contents.slice(0, self.contents.len())
     }
@@ -71,25 +69,29 @@ impl<'a, E, SQ: Square<E>> Iterator<&'a E> for ColIter<'a, E, SQ> {
     }
 }
 
-impl<L, G, E> LGSquare<L, G, E> {
+impl<L, G, E> LGSquare<E> {
     fn new(dim: uint,
-           l_alphabet: ~[L],
-           g_alphabet: ~[G],
-           generate: |uint, uint| -> E) -> LGSquare<L, G, E> {
+           _l_alphabet: ~[L],
+           _g_alphabet: ~[G],
+           generate: |uint, uint| -> E) -> LGSquare<E> {
         let mut contents = ~[];
         for i in range(0, dim) {
             for j in range(0, dim) {
                 contents.push(generate(i, j));
             }
         }
-        LGSquare { l_alphabet: l_alphabet, g_alphabet: g_alphabet, contents: contents }
+        LGSquare { contents: contents }
     }
+}
+
+impl<E> LGSquare<E> {
     fn swap(&mut self, i: uint, j:uint) {
         self.contents.swap(i, j);
     }
 }
 
-impl<L:Eq, G:Eq, E:LatinSquareElem<L, G>> LGSquare<L, G, E> {
+
+impl<L:Eq, G:Eq, E:LatinSquareElem<L, G>> LGSquare<E> {
     fn is_latin(&self) -> bool {
         let dim = self.dim();
         for i in range(0, dim) {
@@ -119,7 +121,7 @@ impl<L:Eq, G:Eq, E:LatinSquareElem<L, G>> LGSquare<L, G, E> {
     }
 }
 
-impl<L, G, E:ToStr> ToStr for LGSquare<L, G, E> {
+impl<E:ToStr> ToStr for LGSquare<E> {
     fn to_str(&self) -> ~str {
         let mut s = ~"";
         let dim = self.dim();
