@@ -90,9 +90,28 @@ impl<E> LGSquare<E> {
     }
 }
 
+impl<L:Clone, G:Clone> Mul<LGSquare<G>, LGSquare<(L,G)>> for LGSquare<L> {
+    fn mul(&self, rhs: &LGSquare<G>) -> LGSquare<(L,G)> {
+        let lft = self.contents.clone().move_iter();
+        let rgt = rhs .contents.clone().move_iter();
+        LGSquare{ contents: lft.zip(rgt).collect() }
+    }
+}
 
-impl<L:Eq, G:Eq, E:LatinSquareElem<L, G>> LGSquare<E> {
+
+impl<L:Eq, G:Eq, E:Eq+LatinSquareElem<L, G>> LGSquare<E> {
     fn is_latin(&self) -> bool {
+        let len = self.contents().len();
+        for i in range(0, len) {
+            let e1 = &self.contents[i];
+            for j in range(i, len) {
+                let e2 = &self.contents[j];
+                if e1 == e2 {
+                    return false;
+                }
+            }
+        }
+
         let dim = self.dim();
         for i in range(0, dim) {
             for j in range(0, dim) {
@@ -121,7 +140,18 @@ impl<L:Eq, G:Eq, E:LatinSquareElem<L, G>> LGSquare<E> {
     }
 }
 
-impl<E:ToStr> ToStr for LGSquare<E> {
+trait ElemToStr {
+    fn to_str(&self) -> ~str;
+}
+
+impl<X:ToStr,Y:ToStr> ElemToStr for (X,Y) {
+    fn to_str(&self) -> ~str {
+        let &(ref x, ref y) = self;
+        x.to_str() + y.to_str()
+    }
+}
+
+impl<E:ElemToStr> ToStr for LGSquare<E> {
     fn to_str(&self) -> ~str {
         let mut s = ~"";
         let dim = self.dim();
@@ -135,13 +165,20 @@ impl<E:ToStr> ToStr for LGSquare<E> {
     }
 }
 
-#[deriving(Clone)]
+#[deriving(Clone,Eq)]
 struct El<L,G>(L, G);
 
 impl<L:ToStr, G:ToStr> ToStr for El<L,G> {
     fn to_str(&self) -> ~str {
         let &El(ref l, ref g) = self;
-        ~"" + l.to_str() + g.to_str()
+        l.to_str() + g.to_str()
+    }
+}
+
+impl<L:ToStr, G:ToStr> ElemToStr for El<L,G> {
+    fn to_str(&self) -> ~str {
+        fn to_str<X:ToStr>(x:&X) -> ~str { x.to_str() }
+        to_str(self)
     }
 }
 
@@ -172,9 +209,18 @@ fn main3() {
 }
 
 fn main4() {
-    let suits = ~["♤", "♡", "♢", "♧"];
-    let faces = ~["A", "K", "Q", "J"];
-    let mut s = LGSquare::new(4, suits.clone(), faces.clone(), |i, j| El(suits[i], faces[j]) );
+    let latin = ~["a", "b", "c", "d"];
+    let greek = ~["α", "β", "δ", "γ"];
+
+    let left = LGSquare{ contents: ~["d", "a", "b", "c",
+                                     "c", "b", "a", "d",
+                                     "a", "d", "c", "b",
+                                     "b", "c", "d", "a"] };
+    let right = LGSquare{ contents: ~["γ", "δ", "β", "α",
+                                      "β", "α", "γ", "δ",
+                                      "α", "β", "δ", "γ",
+                                      "̣δ", "γ", "α", "β"] };
+    let mut s = left * right;
 
     let status = || {
         println!("square: \n{:s}, dim: {}", s.to_str(), s.dim());
@@ -201,6 +247,9 @@ fn main4() {
     s.swap(9, 6);
     s.swap(14, 11);
     s.swap(10, 15);
+    status();
+
+    s = left * left;
     status();
 }
 
