@@ -253,7 +253,85 @@ fn main4() {
     status();
 }
 
+mod natset;
+
+fn find_tranversals_extending<
+    E:Clone+Eq,
+    SQ:Square<E>,
+    SET:natset::AppNatSet<uint>>(s: &SQ,
+                                 prefix: &[E],
+                                 rows_taken: SET) -> ~[~[E]] {
+    // `prefix` implicitly encodes columns taken (via its length) and elements taken (via its contents).  Arguably it also implicitly encodes the rows taken if I wanted to rebuild that from prefix on demand.
+
+    let mut accum = ~[];
+
+    let dim = s.dim();
+    let new_col = prefix.len();
+    for (idx, e) in s.col_iter(new_col).enumerate() {
+        if !rows_taken.has(idx) && !prefix.contains(e) {
+            let mut v = prefix.to_owned();
+            v.push(e.clone());
+            if new_col+1 == dim {
+                accum.push(v);
+            } else {
+                let v = v.as_slice();
+                let recur = |prefix_, rows_taken_| {
+                    find_tranversals_extending(s, prefix_, rows_taken_)
+                };
+
+                let sub = recur(v, rows_taken.plus(idx));
+                accum.push_all_move(sub);
+            }
+        }
+    }
+
+    return accum;
+}
+
+fn main10() {
+    let L = LGSquare{ contents: ~[0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+                                  1, 8, 3, 2, 5, 4, 7, 6, 9, 0,
+                                  2, 9, 5, 6, 3, 0, 8, 4, 7, 1,
+                                  3, 7, 0, 9, 8, 6, 1, 5, 2, 4,
+                                  4, 6, 7, 5, 2, 9, 0, 8, 1, 3,
+                                  5, 0, 9, 4, 7, 8, 3, 1, 6, 2,
+                                  6, 5, 4, 7, 1, 3, 2, 9, 0, 8,
+                                  7, 4, 1, 8, 0, 2, 9, 3, 5, 6,
+                                  8, 3, 6, 0, 9, 1, 5, 2, 4, 7,
+                                  9, 2, 8, 1, 6, 7, 4, 0, 3, 5] };
+
+    let sample              = [0, 8, 5, 9, 7, 3, 4, 2, 1, 6];
+    let sample_name         = "0859734216";
+    let rows : [uint, ..10] = [0, 1, 2, 3, 5, 6, 9, 8, 4, 7];
+
+    let test = |to: uint| {
+        let transversals =
+            find_tranversals_extending(&L,
+                                       sample.slice_to(to),
+                                       rows.slice_to(to).to_owned());
+        if transversals.len() < 4 {
+            println!("transversals_{:s}{:s}: ({:3u}) {:?}",
+                     sample_name.slice_to(to),
+                     " ".repeat(sample_name.len() - to),
+                     transversals.len(),
+                     transversals);
+        } else {
+            println!("transversals_{:s}{:s}: ({:3u}) ...",
+                     sample_name.slice_to(to),
+                     " ".repeat(sample_name.len() - to),
+                     transversals.len());
+        }
+    };
+
+    test(9);
+    test(6);
+    test(3);
+    test(2);
+    test(1);
+}
+
 fn main() {
     main3();
     main4();
+    main10();
 }
