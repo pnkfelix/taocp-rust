@@ -288,8 +288,99 @@ fn find_tranversals_extending<
     return accum;
 }
 
+trait Transversal<E:Clone> {
+    fn place(&self, E, &mut [E]);
+    fn intersects(&self, &Self) -> bool;
+}
+
+impl<E:Clone> Transversal<E> for ~[uint] {
+    fn place(&self, e:E, vec:&mut [E]) {
+        for &i in self.iter() {
+            vec[i] = e.clone();
+        }
+    }
+
+    fn intersects(&self, other: &~[uint]) -> bool {
+        for (&i, &j) in self.iter().zip(other.iter()) {
+            if i == j {
+                return true;
+            }
+        }
+        return false;
+    }
+}
+
+// visits t-elem subsequences of `input`, where n = `input.len()`;
+// returns the first non-none result (or None if all visits yielded None).
+fn choose_first<T:Clone, A>(input: &[T],
+                           t: uint,
+                            visit: |&[&T], loud:bool| -> Option<A>) -> Option<A> {
+    let mut c = ~[0];
+    let n = input.len();
+    for j in ::std::iter::range_inclusive(1, t) {
+        c.push(j-1);
+    }
+    c.push(n);
+    c.push(0);
+
+    let mut visit_count = 0;
+
+    let do_visit = || {
+        let mut temp = ~[];
+        let mut indices = c.slice(1, t+1).to_owned();
+        visit_count = visit_count + 1;
+        let loud = (visit_count % 1000000) == 0;
+        if loud {
+            indices.reverse();
+            println!("visit_count: {} indices: {:?}",
+                     visit_count, indices);
+        }
+        indices.sort();
+        for &j in indices.iter() {
+            temp.push(&input[j]);
+        }
+        visit(temp, loud)
+    };
+
+    loop {
+        let ans = do_visit();
+        match ans {
+            Some(a) => { return Some(a); }
+            None => {}, // keep going
+        }
+        let mut j = 1;
+        while c[j] + 1 == c[j+1] {
+            c[j] = j-1;
+            j = j + 1;
+        }
+        if j > t { break; }
+        c[j] = c[j] + 1;
+    }
+
+    return None;
+}
+
+fn find_nonintersecting<E:Clone, T:Clone+Transversal<E>>(
+    input: &[T],
+    k: uint) -> Option<~[T]> {
+
+    choose_first(input, k, |subseq:&[&T], loud:bool| {
+            for (idx, &t) in subseq.iter().enumerate() {
+                for &t2 in subseq.slice_from(idx+1).iter() {
+                    if t.intersects(t2) {
+                        if loud {
+                            println!("The two intersect: \n{:?} and \n{:?}", *t, *t2);
+                        }
+                        return None;
+                    }
+                }
+            }
+            return Some(subseq.map(|t|(*t).clone()));
+        })
+}
+
 fn main10() {
-    let L = LGSquare{ contents: ~[0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+    let L = LGSquare{ contents: ~[0, 1, 2, 3, 4, 5, 6, 7, 8, 9u,
                                   1, 8, 3, 2, 5, 4, 7, 6, 9, 0,
                                   2, 9, 5, 6, 3, 0, 8, 4, 7, 1,
                                   3, 7, 0, 9, 8, 6, 1, 5, 2, 4,
@@ -300,9 +391,9 @@ fn main10() {
                                   8, 3, 6, 0, 9, 1, 5, 2, 4, 7,
                                   9, 2, 8, 1, 6, 7, 4, 0, 3, 5] };
 
-    let sample              = [0, 8, 5, 9, 7, 3, 4, 2, 1, 6];
-    let sample_name         = "0859734216";
-    let rows : [uint, ..10] = [0, 1, 2, 3, 5, 6, 9, 8, 4, 7];
+    let sample = [0u, 8, 5, 9, 7, 3, 4, 2, 1, 6];
+    let sample_name          = "0859734216";
+    let rows   = [0u, 1, 2, 3, 5, 6, 9, 8, 4, 7];
 
     let test = |to: uint| {
         let transversals =
@@ -321,6 +412,8 @@ fn main10() {
                      " ".repeat(sample_name.len() - to),
                      transversals.len());
         }
+
+        transversals
     };
 
     test(9);
@@ -328,6 +421,22 @@ fn main10() {
     test(3);
     test(2);
     test(1);
+    let final : ~[~[uint]] = test(0);
+
+    let stages = 4; // 10
+    let cover  = find_nonintersecting::<uint, ~[uint]>(final, stages);
+
+    match cover {
+        Some(cover) => {
+            println!(    "cover:");
+            for c in cover.iter() {
+                println!("        {:?}", *c);
+            }
+        }
+        None => {
+            println!("No cover found for {} stages.", stages);
+        }
+    }
 }
 
 fn main() {
