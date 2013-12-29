@@ -1,9 +1,15 @@
+use std::fmt;
+
 mod exact_cover;
 
+#[deriving(Eq)]
 struct Df(uint);
+#[deriving(Eq)]
 struct Cf(uint);
 
+#[deriving(Eq)]
 enum DC { Ddc(Df), Cdc(Cf), }
+#[deriving(Eq)]
 enum CR { Ccr(Cf), Rootcr, }
 
 struct DataObj { L: Df, R: Df, U: DC, D: DC, C: Cf }
@@ -14,6 +20,28 @@ struct dlx_matrix<L> {
     data: ~[DataObj],
     cols: ~[ColumnObj<L>],
     root: RootObj,
+}
+
+impl<LBL> dlx_matrix<LBL> {
+    fn data<'a>(&'a self, d: Df) -> &'a DataObj       { &'a self.data[*d] }
+    fn col<'a>(&'a self, c: Cf) -> &'a ColumnObj<LBL> { &'a self.cols[*c] }
+    fn root<'a>(&'a self) -> &'a RootObj              { &'a self.root      }
+}
+
+impl Df {
+    fn L<LBL>(&self, m: &dlx_matrix<LBL>) -> Df { m.data[**self].L }
+    fn R<LBL>(&self, m: &dlx_matrix<LBL>) -> Df { m.data[**self].R }
+    fn D<LBL>(&self, m: &dlx_matrix<LBL>) -> DC { m.data[**self].D }
+    fn U<LBL>(&self, m: &dlx_matrix<LBL>) -> DC { m.data[**self].U }
+    fn C<LBL>(&self, m: &dlx_matrix<LBL>) -> Cf { m.data[**self].C }
+}
+
+impl Cf {
+    fn L<LBL>(&self, m: &dlx_matrix<LBL>) -> CR { m.cols[**self].L }
+    fn R<LBL>(&self, m: &dlx_matrix<LBL>) -> CR { m.cols[**self].R }
+    fn D<LBL>(&self, m: &dlx_matrix<LBL>) -> DC { m.cols[**self].D }
+    fn U<LBL>(&self, m: &dlx_matrix<LBL>) -> DC { m.cols[**self].U }
+    fn S<'a, LBL>(&self, m: &'a mut dlx_matrix<LBL>) -> &'a mut uint { &'a mut m.cols[**self].S }
 }
 
 trait LRLinked<Ctxt, Rf> {
@@ -80,6 +108,15 @@ impl<L> LRLinked<dlx_matrix<L>, Df> for Df {
     }
     fn update_r(&self, m: &mut dlx_matrix<L>, new_r: Df) {
         m.data[**self].R = new_r;
+    }
+}
+
+impl<L> LRLinked<dlx_matrix<L>, CR> for Cf {
+    fn update_l(&self, m: &mut dlx_matrix<L>, new_l: CR) {
+        m.cols[**self].L = new_l;
+    }
+    fn update_r(&self, m: &mut dlx_matrix<L>, new_r: CR) {
+        m.cols[**self].R = new_r;
     }
 }
 
@@ -227,9 +264,137 @@ impl<L:Clone,M:exact_cover::BitMatrix+exact_cover::ColLabelled<L>+exact_cover::R
     }
 }
 
+struct Dlx<'a, L> {
+    m: &'a mut dlx_matrix<L>,
+    soln: ~[Df],
+}
+
+impl<'a, L:fmt::String> Dlx<'a, L> {
+
+    fn col<'b>(&'b self, c: Cf) -> &'b ColumnObj<L> { self.m.col(c) }
+    fn data<'b>(&'b self, d: Df) -> &'b DataObj { self.m.data(d) }
+
+    fn cover(&mut self, c: Cf) {
+        let new_l = c.L(self.m);
+        c.R(self.m).update_l(self.m, new_l);
+        let new_r = c.R(self.m);
+        c.L(self.m).update_r(self.m, new_r);
+        let mut i = c.D(self.m);
+        loop {
+            match i {
+                Cdc(_) => break,
+                Ddc(id) => {
+                    let mut j = id.R(self.m);
+                    while j != id {
+                        let new_u = j.U(self.m);
+                        j.D(self.m).update_u(self.m, new_u);
+                        let new_d = j.D(self.m);
+                        j.U(self.m).update_d(self.m, new_d);
+                        *j.C(self.m).S(self.m) -= 1;
+
+                        j = j.R(self.m);
+                    }
+                    i = id.D(self.m);
+                }
+            }
+        }
+    }
+
+    fn uncover(&mut self, c: Cf) {
+        let mut i = c.U(self.m);
+        loop {
+            match i {
+                Cdc(_) => break,
+                Ddc(id) => {
+                    let mut j = id.L(self.m);
+                    while j != id {
+                        *j.C(self.m).S(self.m) += 1;
+                        j.D(self.m).update_u(self.m, Ddc(j));
+                        j.U(self.m).update_d(self.m, Ddc(j));
+                        j = j.L(self.m);
+                    }
+                    i = id.U(self.m);
+                }
+            }
+        }
+        c.R(self.m).update_l(self.m, Ccr(c));
+        c.L(self.m).update_r(self.m, Ccr(c));
+    }
+
+    fn search(&mut self,
+              k: uint,
+              select_col: &|&dlx_matrix<L>| -> Cf
+) {
+        if self.m.root.R == Rootcr {
+            self.print_soln();
+            return;
+        }
+        let c = (*select_col)(self.m);
+        self.cover(c);
+        let mut r = self.col(c).D;
+        loop {
+            match r {
+                Cdc(_) => break,
+                Ddc(rd) => {
+                    assert!(self.soln.len() >= k);
+                    if self.soln.len() == k {
+                        self.soln.push(rd);
+                    } else {
+                        self.soln[k] = rd;
+                    }
+                    let mut j = self.data(rd).R;
+                    while j != rd {
+                        let c = self.data(j).C;
+                        self.cover(c);
+                        j = self.data(j).R;
+                    }
+                    self.search(k+1, select_col);
+                    rd = self.soln[k];
+                    let c = self.data(rd).C;
+                    let mut j = self.data(rd).L;
+                    while j != rd {
+                        let c = self.data(j).C;
+                        self.uncover(c);
+                        j = self.data(j).L;
+                    }
+                    r = self.data(rd).D;
+                }
+            }
+        }
+        self.uncover(c);
+    }
+
+    fn print_soln(&self) {
+        for &d in self.soln.iter() {
+            self.print_row_containing(d);
+            println!("");
+        }
+        println!("");
+    }
+
+    fn print_row_containing(&self, d: Df) {
+        let mut cursor = d;
+        loop {
+            let obj = self.m.data(cursor);
+            print!("{:s} ", self.m.col(obj.C).N);
+            cursor = obj.R;
+            if cursor == d {
+                break;
+            }
+        }
+    }
+}
+
 fn main() {
-    let input = exact_cover::simple_exact_cover_instance_2();
+    let input = exact_cover::simple_exact_cover_instance_1();
     println!("Hello world input: {}", input);
-    let m = dlx_matrix::new(&input);
-    println!("yields {:?}", m);
+    let mut m = dlx_matrix::new(&input);
+    // println!("yields {:?}", m);
+    let mut dlx = Dlx { m: &mut m, soln: ~[] };
+    dlx.search(0, &|m| {
+            match m.root.R {
+                Ccr(cf) => cf,
+                Rootcr  => fail!("should not choose col on empty matrix")
+            }
+        });
 }
