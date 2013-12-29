@@ -12,7 +12,7 @@ impl<T:Clone> TakeIterOn<T, ~[T]> for Accumulate {
     }
 }
 
-trait BitMatrix {
+pub trait BitMatrix {
     fn num_cols(&self) -> uint;
     fn num_rows(&self) -> uint;
     fn at(&self, col: uint, row: uint) -> bool;
@@ -53,8 +53,8 @@ trait BitMatrix {
             }
         }
 
-trait ColLabelled<L> { fn col_label<'a>(&'a self, col: uint) -> &'a L; }
-trait RowLabelled<L> { fn row_label<'a>(&'a self, row: uint) -> &'a L; }
+pub trait ColLabelled<L> { fn col_label<'a>(&'a self, col: uint) -> &'a L; }
+pub trait RowLabelled<L> { fn row_label<'a>(&'a self, row: uint) -> &'a L; }
 
 struct GenericColIter<'a, M> { mat: &'a M, row: uint, cursor: uint }
 struct GenericRowIter<'a, M> { mat: &'a M, col: uint, cursor: uint }
