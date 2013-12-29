@@ -267,6 +267,7 @@ impl<L:Clone,M:exact_cover::BitMatrix+exact_cover::ColLabelled<L>+exact_cover::R
 struct Dlx<'a, L> {
     m: &'a mut dlx_matrix<L>,
     soln: ~[Df],
+    count_updates: uint,
 }
 
 impl<'a, L:fmt::String> Dlx<'a, L> {
@@ -279,6 +280,8 @@ impl<'a, L:fmt::String> Dlx<'a, L> {
         c.R(self.m).update_l(self.m, new_l);
         let new_r = c.R(self.m);
         c.L(self.m).update_r(self.m, new_r);
+        // self.count_updates += 1;
+
         let mut i = c.D(self.m);
         loop {
             match i {
@@ -290,6 +293,8 @@ impl<'a, L:fmt::String> Dlx<'a, L> {
                         j.D(self.m).update_u(self.m, new_u);
                         let new_d = j.D(self.m);
                         j.U(self.m).update_d(self.m, new_d);
+                        self.count_updates += 1;
+
                         *j.C(self.m).S(self.m) -= 1;
 
                         j = j.R(self.m);
@@ -390,11 +395,40 @@ fn main() {
     println!("Hello world input: {}", input);
     let mut m = dlx_matrix::new(&input);
     // println!("yields {:?}", m);
-    let mut dlx = Dlx { m: &mut m, soln: ~[] };
-    dlx.search(0, &|m| {
-            match m.root.R {
-                Ccr(cf) => cf,
-                Rootcr  => fail!("should not choose col on empty matrix")
+    let mut dlx = Dlx { m: &mut m, soln: ~[], count_updates: 0 };
+
+    let trivial_col_choice = |m:&dlx_matrix<&'static str>| {
+        match m.root.R {
+            Ccr(cf) => cf,
+            Rootcr  => fail!("should not choose col on empty matrix")
+        }
+    };
+
+    let min_branching_col_choice = |m:&dlx_matrix<&'static str>| -> Cf {
+        let mut j = m.root.R;
+        let mut c = j;
+        let mut s = None; // represents +infinity
+        loop {
+            match j {
+                Rootcr => break,
+                Ccr(jd) => {
+                    match (m.col(jd).S, s) {
+                        (s2, None)                => { s = Some(s2); c = j; }
+                        (s2, Some(s1)) if s2 < s1 => { s = Some(s2); c = j; }
+                        _ => {} }
+                    j = jd.R(m);
+                }
             }
-        });
+        }
+
+        match c {
+            Ccr(cf) => cf,
+            Rootcr  => fail!("should not choose col on empty matrix")
+        }
+
+    };
+
+    // dlx.search(0, &trivial_col_choice);
+    dlx.search(0, &min_branching_col_choice);
+    println!("dlx.count_updates: {}", dlx.count_updates);
 }
