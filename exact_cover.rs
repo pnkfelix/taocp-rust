@@ -1,3 +1,5 @@
+#[allow(dead_code)];
+
 use std::cmp::min;
 use std::fmt;
 
@@ -162,7 +164,6 @@ impl<L:Clone, B:ToBool+Clone> BitMatrix for Matrix<L, B> {
     fn at(&self, col: uint, row: uint) -> bool { self.at(col, row).to_bool() }
     fn without_row(&self, row: uint) -> Matrix<L, B> {
         assert!(row < self.num_rows());
-        let elems = self.elems.clone();
         let lft = self.elems.slice_to(row * self.num_cols());
         let rgt = self.elems.slice_from((row+1) * self.num_cols());
         let mut rows = self.rows.clone();
@@ -278,8 +279,8 @@ fn choose_nonzero_col<M:BitMatrix>(m: &M) -> Option<uint> {
     return None;
 }
 
-fn simple_exact_cover_instance_1() {
-    let m = Matrix {
+pub fn simple_exact_cover_instance_1() -> Matrix<&'static str, uint> {
+    Matrix {
         cols: ~["a", "b", "c", "d", "e", "f", "g", ],
         col_indent: ~" ",
         rows: ~["1", "2", "3", "4", "5", "6", ],
@@ -290,7 +291,11 @@ fn simple_exact_cover_instance_1() {
                  0, 1, 0, 0, 0, 0, 1,
                  0, 0, 0, 1, 1, 0, 1,
                  ]
-    };
+    }
+}
+
+fn solve_exact_cover_instance_1() {
+    let m = simple_exact_cover_instance_1();
     let unconstrained_soln : ~[~str] = ~[];
     println!("simple_exact_cover_instance begin: {}", m);
     let solns = x::find_solutions(&m,
@@ -299,7 +304,7 @@ fn simple_exact_cover_instance_1() {
     println!("simple_exact_cover_instance solns: {:?}", solns);
 }
 
-fn simple_exact_cover_instance_2() {
+pub fn simple_exact_cover_instance_2() -> Matrix<&'static str, uint> {
     // (This instance of the problem is not solvable; I was trying to debug
     //  why my transcription of Knuth's algorithm X goes wrong.  The bug ended
     //  up being that my defintiion of "A is empty" was based on the number of
@@ -307,13 +312,17 @@ fn simple_exact_cover_instance_2() {
     //  number of columns (which can exist independently of rows).  I would
     //  argue that this remains a deficiency in Knuth's presentation, but
     //  it is a pretty easy bug to fix once you see where it arises.)
-    let m = Matrix {
+    Matrix {
         rows:      ~["   a", "   b"],
         col_indent: ~"    ",
         cols: ~[ "1", "2", "3"],
         elems: ~[0, 1, 1, 
                  1, 1, 0, ]
-    };
+    }
+}
+
+fn solve_exact_cover_instance_2() {
+    let m = simple_exact_cover_instance_2();
     let unconstrained_soln : ~[~str] = ~[];
     println!("simple_exact_cover_instance begin: {}", m);
     let solns = x::find_solutions(&m,
