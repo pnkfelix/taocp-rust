@@ -52,12 +52,16 @@ impl<L> QuadLinked<dlx_matrix<L>, CR, CR, DC, DC> for CR {
 
 impl<L:Clone,M:exact_cover::BitMatrix+exact_cover::ColLabelled<L>> dlx_matrix<L> {
     fn new(input: &M) -> dlx_matrix<L> {
+        use exact_cover::Matrix;
+
         let mut m : dlx_matrix<L> = dlx_matrix::<L> {
             data: ~[], cols: ~[], root: RootObj { L: Rootcr, R: Rootcr }
         };
 
+        let mut col_labels = ~[];
         for i in range(0, input.num_cols()) {
             let l : L = input.col_label(i).clone();
+            col_labels.push(l.clone());
 
             //// Yucko, had to manually inline body of `prepend_empty_col`
             //// to placate type-checker.  Reduce to something small later.
@@ -78,6 +82,65 @@ impl<L:Clone,M:exact_cover::BitMatrix+exact_cover::ColLabelled<L>> dlx_matrix<L>
             let cr = Ccr(Cf(idx));
             root_r.update_l(&mut m, cr);
             Rootcr.update_r(&mut m, cr);
+        }
+
+        // As we scan the input, `ptrs` keeps track of how its
+        // elements map to entries in the matrix `m` we are building.
+
+        type Ptrs = Matrix<L, Option<Df>>;
+        let mut ptrs = {
+            let init_ptrs : ~[Option<Df>] = ~[];
+            let mut ptrs = Matrix {
+                col_indent: ~"",
+                cols: col_labels,
+                rows: ~[],
+                elems: init_ptrs
+            };
+
+            for row in range(0, input.num_rows()) {
+                for col in range(0, input.num_cols()) {
+                    ptrs.elems.push(None); // placeholders
+                }
+            }
+
+            ptrs
+        };
+
+        fn find_row(m: &Ptrs, col: uint, row: uint, dir: int) -> Option<Df> {
+            let update = |x:uint| {
+                (x as int + dir) as uint % m.cols.len()
+            };
+            let mut cursor = update(col);
+            while cursor != col {
+                cursor = update(cursor);
+
+                match m.at(col, row) {
+                    &Some(df) => return Some(df),
+                    &None     => continue,
+                }
+            }
+            return None;
+        }
+
+        for col in range(0, input.num_cols()) {
+            let cf = Cf(col);
+            let hdr = Cdc(cf);
+            let mut last_in_col : DC = hdr;
+            for row in range(0, input.num_rows()) {
+                if input.at(col, row) {
+                    let l = find_row(&ptrs, col, row, -1);
+                    let r = find_row(&ptrs, col, row,  1);
+
+                    let df = Df(m.data.len());
+                    let l = l.unwrap_or(df);
+                    let r = r.unwrap_or(df);
+
+                    let d = DataObj { L: l, R: r, U: last_in_col, D: hdr, C: cf };
+                    let df = Df(m.data.len());
+                    m.data.push(d);
+                    ptrs.put(col, row, Some(df));
+                }
+            }
         }
 
         m
