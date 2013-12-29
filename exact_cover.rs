@@ -98,7 +98,7 @@ trait MutBitMatrix : BitMatrix {
 }
 
 #[deriving(Clone)]
-struct Matrix<L, T> {
+pub struct Matrix<L, T> {
     col_indent: ~str,
     cols: ~[L],
     rows: ~[L],
@@ -134,12 +134,17 @@ impl<L:fmt::String, T:fmt::Default> fmt::Default for Matrix<L, T> {
 }
 
 impl<L, T> Matrix<L, T> {
-    fn at<'a>(&'a self, col: uint, row: uint) -> &'a T {
+    pub fn at<'a>(&'a self, col: uint, row: uint) -> &'a T {
         let width = self.cols.len();
         let rw = row * width;
         let len = self.elems.len();
         assert!(rw + col < len);
         &self.elems[(row * width) + col]
+    }
+
+    pub fn put(&mut self, col: uint, row: uint, t: T) {
+        let width = self.cols.len();
+        self.elems[(row * width) + col] = t;
     }
 }
 
