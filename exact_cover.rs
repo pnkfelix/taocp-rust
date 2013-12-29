@@ -295,10 +295,13 @@ fn simple_exact_cover_instance_1() {
 }
 
 fn simple_exact_cover_instance_2() {
-    // (This instance of the problem is not solvable; I am trying to debug
-    //  why my transcription of Knuth's algorithm X goes wrong.  I suspect
-    //  he left out a number of details about where it should terminate
-    //  unsuccessfully.)
+    // (This instance of the problem is not solvable; I was trying to debug
+    //  why my transcription of Knuth's algorithm X goes wrong.  The bug ended
+    //  up being that my defintiion of "A is empty" was based on the number of
+    //  elements in the matrix, but the actual termination condition is the
+    //  number of columns (which can exist independently of rows).  I would
+    //  argue that this remains a deficiency in Knuth's presentation, but
+    //  it is a pretty easy bug to fix once you see where it arises.)
     let m = Matrix {
         rows:      ~["   a", "   b"],
         col_indent: ~"    ",
