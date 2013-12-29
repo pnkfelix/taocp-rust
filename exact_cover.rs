@@ -275,7 +275,7 @@ fn choose_nonzero_col<M:BitMatrix>(m: &M) -> Option<uint> {
 
 fn simple_exact_cover_instance_1() {
     let m = Matrix {
-        cols: ~["1", "2", "3", "4", "5", "6", "7", ],
+        cols: ~["a", "b", "c", "d", "e", "f", "g", ],
         col_indent: ~" ",
         rows: ~["1", "2", "3", "4", "5", "6", ],
         elems: ~[0, 0, 1, 0, 1, 1, 0,
@@ -300,8 +300,9 @@ fn simple_exact_cover_instance_2() {
     //  he left out a number of details about where it should terminate
     //  unsuccessfully.)
     let m = Matrix {
-        col_indent: ~"   ", cols: ~[ "1",    "2"],
         rows:      ~["   a", "   b"],
+        col_indent: ~"    ",
+        cols: ~[ "1", "2", "3"],
         elems: ~[0, 1, 1, 
                  1, 1, 0, ]
     };
@@ -315,5 +316,5 @@ fn simple_exact_cover_instance_2() {
 
 fn main() {
     simple_exact_cover_instance_1();
-    // simple_exact_cover_instance_2();
+    simple_exact_cover_instance_2();
 }
