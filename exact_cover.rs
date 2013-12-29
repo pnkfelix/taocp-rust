@@ -98,7 +98,12 @@ trait MutBitMatrix : BitMatrix {
 }
 
 #[deriving(Clone)]
-struct Matrix<L, T> { width: uint, rows: ~[L], col_indent: ~str, cols: ~[L], elems: ~[T] }
+struct Matrix<L, T> {
+    width: uint,
+    col_indent: ~str,
+    cols: ~[L],
+    rows: ~[L],
+    elems: ~[T] }
 
 impl<L:fmt::String, T> RowLabelled<L> for Matrix<L, T> {
     fn row_label<'a>(&'a self, row: uint) -> &'a L { &'a self.rows[row] }
@@ -223,13 +228,13 @@ mod x {
         let indent = "    ".repeat(level);
 
         if a.is_covered() { // problem is solved,
-            println!("{}a is_covered, soln: {:?}", indent, partial_soln);
+            debug!("{}a is_covered, soln: {:?}", indent, partial_soln);
             return ~[partial_soln.clone()]; // success.
         }
         let c = (*select_col)(a);
         let rows = a.rows_on(c, &super::Accumulate);
         for &r in rows.iter() {
-            println!("{}solving mat {} for (c,r) = ({},{:s})", indent, *a, c, *a.row_label(r));
+            debug!("{}solving mat {} for (c,r) = ({},{:s})", indent, *a, c, *a.row_label(r));
             let partial = partial_soln.include(a.row_label(r));
             let cols = a.cols_on(r, &super::Accumulate);
 
@@ -237,20 +242,20 @@ mod x {
             // println!("{:s}  removing row {:s}", indent, *a_new.row_label(r));
             // a_new = a_new.without_row(r);
             for &j in cols.iter().invert() {
-                println!("{:s} removing column {:u} due to it being covered by row {:s}", indent, j, *a.row_label(r));
+                debug!("{:s} removing column {:u} due to it being covered by row {:s}", indent, j, *a.row_label(r));
 
                 let rows = a_new.rows_on(j, &super::Accumulate);
                 for &i in rows.iter().invert() {
                     if i == r {
-                        println!("{:s}  removing row {:s}", indent, *a_new.row_label(i));
+                        debug!("{:s}  removing row {:s}", indent, *a_new.row_label(i));
                     } else {
-                        println!("{:s}  removing row {:s} (as it collides with row {:s} on column {:u})", indent, *a_new.row_label(i), *a.row_label(r), j);
+                        debug!("{:s}  removing row {:s} (as it collides with row {:s} on column {:u})", indent, *a_new.row_label(i), *a.row_label(r), j);
                     }
                     a_new = a_new.without_row(i);
                 }
 
                 a_new = a_new.without_col(j);
-                println!("{:s} removing col {:u} yielded {}", indent, j, a_new);
+                debug!("{:s} removing col {:u} yielded {}", indent, j, a_new);
 
             }
             let sub = recur(level + 1, &a_new, &partial, select_col);
