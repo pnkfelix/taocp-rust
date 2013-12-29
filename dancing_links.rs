@@ -16,14 +16,22 @@ struct dlx_matrix<L> {
     root: RootObj,
 }
 
-trait QuadLinked<Ctxt, Lf, Rf, Uf, Df> {
-    fn update_l(&self, m: &mut Ctxt, new_l: Lf);
+trait LRLinked<Ctxt, Rf> {
+    fn update_l(&self, m: &mut Ctxt, new_l: Rf);
     fn update_r(&self, m: &mut Ctxt, new_r: Rf);
-    fn update_u(&self, m: &mut Ctxt, new_u: Uf);
-    fn update_d(&self, m: &mut Ctxt, new_d: Df);
 }
 
-impl<L> QuadLinked<dlx_matrix<L>, CR, CR, DC, DC> for CR {
+trait UDLinked<Ctxt, Rf> {
+    fn update_u(&self, m: &mut Ctxt, new_u: Rf);
+    fn update_d(&self, m: &mut Ctxt, new_d: Rf);
+}
+
+trait QuadLinked<Ctxt, LRf, UDf> : LRLinked<Ctxt, LRf>
+                                 + UDLinked<Ctxt, UDf>
+{
+}
+
+impl<L> LRLinked<dlx_matrix<L>, CR> for CR {
     fn update_l(&self, m: &mut dlx_matrix<L>, new_l: CR) {
         match self {
             &Rootcr     => { m.root.L = new_l; }
@@ -36,6 +44,8 @@ impl<L> QuadLinked<dlx_matrix<L>, CR, CR, DC, DC> for CR {
             &Ccr(Cf(i)) => { m.cols[i].R = new_r; }
         }
     }
+}
+impl<L> UDLinked<dlx_matrix<L>, DC> for CR {
     fn update_u(&self, m: &mut dlx_matrix<L>, new_u: DC) {
         match self {
             &Rootcr     => fail!(),
@@ -49,8 +59,40 @@ impl<L> QuadLinked<dlx_matrix<L>, CR, CR, DC, DC> for CR {
         }
     }
 }
+impl<L> UDLinked<dlx_matrix<L>, DC> for DC {
+    fn update_u(&self, m: &mut dlx_matrix<L>, new_u: DC) {
+        match self {
+            &Ddc(Df(i)) => { m.data[i].U = new_u; }
+            &Cdc(Cf(i)) => { m.cols[i].U = new_u; }
+        }
+    }
+    fn update_d(&self, m: &mut dlx_matrix<L>, new_d: DC) {
+        match self {
+            &Ddc(Df(i)) => { m.data[i].D = new_d; }
+            &Cdc(Cf(i)) => { m.cols[i].D = new_d; }
+        }
+    }
+}
 
-impl<L:Clone,M:exact_cover::BitMatrix+exact_cover::ColLabelled<L>> dlx_matrix<L> {
+impl<L> LRLinked<dlx_matrix<L>, Df> for Df {
+    fn update_l(&self, m: &mut dlx_matrix<L>, new_l: Df) {
+        m.data[**self].L = new_l;
+    }
+    fn update_r(&self, m: &mut dlx_matrix<L>, new_r: Df) {
+        m.data[**self].R = new_r;
+    }
+}
+
+impl<L> UDLinked<dlx_matrix<L>, DC> for Df {
+    fn update_u(&self, m: &mut dlx_matrix<L>, new_u: DC) {
+        m.data[**self].U = new_u;
+    }
+    fn update_d(&self, m: &mut dlx_matrix<L>, new_d: DC) {
+        m.data[**self].D = new_d;
+    }
+}
+
+impl<L:Clone,M:exact_cover::BitMatrix+exact_cover::ColLabelled<L>+exact_cover::RowLabelled<L>> dlx_matrix<L> {
     fn new(input: &M) -> dlx_matrix<L> {
         use exact_cover::Matrix;
 
@@ -87,7 +129,7 @@ impl<L:Clone,M:exact_cover::BitMatrix+exact_cover::ColLabelled<L>> dlx_matrix<L>
         // As we scan the input, `ptrs` keeps track of how its
         // elements map to entries in the matrix `m` we are building.
 
-        type Ptrs = Matrix<L, Option<Df>>;
+        type Ptrs<L> = Matrix<L, Option<Df>>;
         let mut ptrs = {
             let init_ptrs : ~[Option<Df>] = ~[];
             let mut ptrs = Matrix {
@@ -106,38 +148,54 @@ impl<L:Clone,M:exact_cover::BitMatrix+exact_cover::ColLabelled<L>> dlx_matrix<L>
             ptrs
         };
 
-        fn find_row(m: &Matrix<L, Option<Df>>, col: uint, row: uint, dir: int) -> Option<Df> {
+        fn find<L>(m: &Ptrs<L>, col: uint, row: uint, dir: int) -> Option<Df> {
             let update = |x:uint| {
-                (x as int + dir) as uint % m.cols.len()
+                let next = (x as int + dir);
+                if next == -1 { m.cols.len() - 1 }
+                    else if next as uint == m.cols.len() { 0u }
+                    else { next as uint }
             };
             let mut cursor = update(col);
             while cursor != col {
+                match m.at(cursor, row) {
+                    &Some(df) => return Some(df),
+                    &None     => {},
+                }
                 cursor = update(cursor);
 
-                match m.at(col, row) {
-                    &Some(df) => return Some(df),
-                    &None     => continue,
-                }
             }
             return None;
         }
 
         for col in range(0, input.num_cols()) {
+            debug!("transcribing col: {:?}", *input.col_label(col));
             let cf = Cf(col);
             let hdr = Cdc(cf);
             let mut last_in_col : DC = hdr;
             for row in range(0, input.num_rows()) {
                 if input.at(col, row) {
-                    let l = find_row(&ptrs, col, row, -1);
-                    let r = find_row(&ptrs, col, row,  1);
+                    debug!("transcribing entry: ({:?},{:?})", *input.col_label(col), *input.row_label(row));
+                    let l = find(&ptrs, col, row, -1);
+                    let r = find(&ptrs, col, row,  1);
+
+                    debug!("entry: ({:?},{:?}) found l: {:?} r: {:?}",
+                           *input.col_label(col), *input.row_label(row), l, r);
 
                     let df = Df(m.data.len());
                     let l = l.unwrap_or(df);
                     let r = r.unwrap_or(df);
 
                     let d = DataObj { L: l, R: r, U: last_in_col, D: hdr, C: cf };
+                    debug!("entry: ({:?},{:?}) gets obj {:?}",
+                           *input.col_label(col), *input.row_label(row), d);
                     let df = Df(m.data.len());
                     m.data.push(d);
+
+                    l.update_r(&mut m, df);
+                    r.update_l(&mut m, df);
+                    last_in_col.update_d(&mut m, Ddc(df));
+                    hdr.update_u(&mut m, Ddc(df));
+
                     ptrs.put(col, row, Some(df));
                     last_in_col = Ddc(df);
                 }
@@ -171,6 +229,7 @@ impl<L:Clone,M:exact_cover::BitMatrix+exact_cover::ColLabelled<L>> dlx_matrix<L>
 
 fn main() {
     let input = exact_cover::simple_exact_cover_instance_2();
+    println!("Hello world input: {}", input);
     let m = dlx_matrix::new(&input);
-    println!("Hello world {:?}", m);
+    println!("yields {:?}", m);
 }
