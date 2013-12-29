@@ -19,8 +19,8 @@ trait BitMatrix {
     fn without_row(&self, row: uint) -> Self;
     fn without_col(&self, col: uint) -> Self;
 
-    fn is_empty(&self) -> bool {
-        self.num_cols() == 0 || self.num_rows() == 0
+    fn is_covered(&self) -> bool {
+        self.num_cols() == 0
     }
     fn rows_on<'a, A, K: TakeIterOn<uint, A>>(&'a self, col: uint, k: &K) -> A {
         // println!("col: {}, num_cols: {}", col, self.num_cols());
@@ -53,6 +53,7 @@ trait BitMatrix {
             }
         }
 
+trait ColLabelled<L> { fn col_label<'a>(&'a self, col: uint) -> &'a L; }
 trait RowLabelled<L> { fn row_label<'a>(&'a self, row: uint) -> &'a L; }
 
 struct GenericColIter<'a, M> { mat: &'a M, row: uint, cursor: uint }
@@ -97,26 +98,26 @@ trait MutBitMatrix : BitMatrix {
 }
 
 #[deriving(Clone)]
-struct Matrix<L, T> { width: uint, rows: ~[L], elems: ~[T] }
+struct Matrix<L, T> { width: uint, rows: ~[L], col_indent: ~str, cols: ~[L], elems: ~[T] }
 
 impl<L:fmt::String, T> RowLabelled<L> for Matrix<L, T> {
-    fn row_label<'a>(&'a self, row: uint) -> &'a L {
-        &'a self.rows[row]
-    }
+    fn row_label<'a>(&'a self, row: uint) -> &'a L { &'a self.rows[row] }
+}
+
+impl<L:fmt::String, T> ColLabelled<L> for Matrix<L, T> {
+    fn col_label<'a>(&'a self, col: uint) -> &'a L { &'a self.cols[col] }
 }
 
 impl<L:fmt::String, T:fmt::Default> fmt::Default for Matrix<L, T> {
     fn fmt(obj: &Matrix<L, T>, f: &mut fmt::Formatter) {
         let mut line   = 0u;
         let mut cursor = 0;
-        let mut opened = false;
-        write!(f.buf, "\n{:s}( ", obj.rows[0]);
+        write!(f.buf, "\n{:s}( ", obj.col_indent);
+        for l in obj.cols.iter() {
+            write!(f.buf, "{:s} ", *l);
+        }
         while cursor < obj.elems.len() {
-            if !opened { 
-                opened = true;
-            } else {
-                write!(f.buf, "|\n{:s}| ", obj.rows[line]);
-            }
+            write!(f.buf, "|\n{:s}| ", obj.rows[line]);
             for e in obj.elems.slice(cursor, cursor + obj.width).iter() {
                 write!(f.buf, "{} ", *e);
             }
@@ -158,7 +159,9 @@ impl<L:Clone, B:ToBool+Clone> BitMatrix for Matrix<L, B> {
         let rgt = self.elems.slice_from((row+1) * self.width);
         let mut rows = self.rows.clone();
         rows.remove(row);
-        Matrix { width: self.width, rows: rows, elems: lft + rgt }
+        Matrix { width: self.width, rows: rows,
+                 col_indent: self.col_indent.clone(), cols: self.cols.clone(),
+                 elems: lft + rgt }
     }
     fn without_col(&self, col: uint) -> Matrix<L, B> {
         let mut accum = ~[];
@@ -170,7 +173,10 @@ impl<L:Clone, B:ToBool+Clone> BitMatrix for Matrix<L, B> {
             cursor = next_drop + 1;
             next_drop = min(len, next_drop + self.width);
         }
-        Matrix { width: self.width - 1, rows: self.rows.clone(), elems: accum }
+        let mut cols = self.cols.clone();
+        cols.remove(col);
+        Matrix { width: self.width - 1, rows: self.rows.clone(), 
+                 col_indent: self.col_indent.clone(), cols: cols, elems: accum }
     }
 }
 
@@ -216,8 +222,8 @@ mod x {
         let mut solns = ~[];
         let indent = "    ".repeat(level);
 
-        if a.is_empty() { // problem is solved,
-            println!("{}a is_empty, soln: {:?}", indent, partial_soln);
+        if a.is_covered() { // problem is solved,
+            println!("{}a is_covered, soln: {:?}", indent, partial_soln);
             return ~[partial_soln.clone()]; // success.
         }
         let c = (*select_col)(a);
@@ -243,12 +249,8 @@ mod x {
                     a_new = a_new.without_row(i);
                 }
 
-                if a_new.is_empty() {
-                    println!("{:s} removing rows for col {:u} yielded empty", indent, j);
-                } else {
-                    a_new = a_new.without_col(j);
-                    println!("{:s} removing col {:u} yielded {}", indent, j, a_new);
-                }
+                a_new = a_new.without_col(j);
+                println!("{:s} removing col {:u} yielded {}", indent, j, a_new);
 
             }
             let sub = recur(level + 1, &a_new, &partial, select_col);
@@ -271,14 +273,15 @@ fn choose_nonzero_col<M:BitMatrix>(m: &M) -> Option<uint> {
 fn simple_exact_cover_instance_1() {
     let m = Matrix {
         width: 7,
-        rows: ~["1", "2", "3", "4", "5", "6", "fake"],
+        cols: ~["1", "2", "3", "4", "5", "6", "7", ],
+        col_indent: ~" ",
+        rows: ~["1", "2", "3", "4", "5", "6", ],
         elems: ~[0, 0, 1, 0, 1, 1, 0,
                  1, 0, 0, 1, 0, 0, 1,
                  0, 1, 1, 0, 0, 1, 0,
                  1, 0, 0, 1, 0, 0, 0,
                  0, 1, 0, 0, 0, 0, 1,
                  0, 0, 0, 1, 1, 0, 1,
-                 0, 0, 0, 0, 0, 0, 0, // fake all-zero row (see note below).
                  ]
     };
     let unconstrained_soln : ~[~str] = ~[];
@@ -296,13 +299,9 @@ fn simple_exact_cover_instance_2() {
     //  unsuccessfully.)
     let m = Matrix {
         width: 3,
-        rows: ~["fake", "   a", "   b"],
-        elems: ~[0, 0, 0, // a fake all-zero row to work-around bug in my
-                          // understanding of the algorithm.  (Removing all
-                          // rows should not be interpreted as an empty matrix,
-                          // because that would not necessarily cover all
-                          // columns.)
-                 0, 1, 1, 
+        col_indent: ~"   ", cols: ~[ "1",    "2"],
+        rows:      ~["   a", "   b"],
+        elems: ~[0, 1, 1, 
                  1, 1, 0, ]
     };
     let unconstrained_soln : ~[~str] = ~[];
