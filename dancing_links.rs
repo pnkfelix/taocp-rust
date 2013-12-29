@@ -97,8 +97,8 @@ impl<L:Clone,M:exact_cover::BitMatrix+exact_cover::ColLabelled<L>> dlx_matrix<L>
                 elems: init_ptrs
             };
 
-            for row in range(0, input.num_rows()) {
-                for col in range(0, input.num_cols()) {
+            for _ in range(0, input.num_rows()) {
+                for _ in range(0, input.num_cols()) {
                     ptrs.elems.push(None); // placeholders
                 }
             }
@@ -139,6 +139,7 @@ impl<L:Clone,M:exact_cover::BitMatrix+exact_cover::ColLabelled<L>> dlx_matrix<L>
                     let df = Df(m.data.len());
                     m.data.push(d);
                     ptrs.put(col, row, Some(df));
+                    last_in_col = Ddc(df);
                 }
             }
         }
@@ -146,6 +147,7 @@ impl<L:Clone,M:exact_cover::BitMatrix+exact_cover::ColLabelled<L>> dlx_matrix<L>
         m
     }
 
+    #[cfg(not_now)]
     fn prepend_empty_col(&mut self, label: L) -> Cf {
         let idx = self.cols.len();
         let dc = Cdc(Cf(idx));
@@ -168,5 +170,7 @@ impl<L:Clone,M:exact_cover::BitMatrix+exact_cover::ColLabelled<L>> dlx_matrix<L>
 }
 
 fn main() {
-    println!("Hello world");
+    let input = exact_cover::simple_exact_cover_instance_2();
+    let m = dlx_matrix::new(&input);
+    println!("Hello world {:?}", m);
 }
