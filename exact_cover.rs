@@ -99,7 +99,6 @@ trait MutBitMatrix : BitMatrix {
 
 #[deriving(Clone)]
 struct Matrix<L, T> {
-    width: uint,
     col_indent: ~str,
     cols: ~[L],
     rows: ~[L],
@@ -163,7 +162,7 @@ impl<L:Clone, B:ToBool+Clone> BitMatrix for Matrix<L, B> {
         let rgt = self.elems.slice_from((row+1) * self.num_cols());
         let mut rows = self.rows.clone();
         rows.remove(row);
-        Matrix { width: self.width, rows: rows,
+        Matrix { rows: rows,
                  col_indent: self.col_indent.clone(), cols: self.cols.clone(),
                  elems: lft + rgt }
     }
@@ -179,7 +178,7 @@ impl<L:Clone, B:ToBool+Clone> BitMatrix for Matrix<L, B> {
         }
         let mut cols = self.cols.clone();
         cols.remove(col);
-        Matrix { width: self.width - 1, rows: self.rows.clone(), 
+        Matrix { rows: self.rows.clone(), 
                  col_indent: self.col_indent.clone(), cols: cols, elems: accum }
     }
 }
@@ -276,7 +275,6 @@ fn choose_nonzero_col<M:BitMatrix>(m: &M) -> Option<uint> {
 
 fn simple_exact_cover_instance_1() {
     let m = Matrix {
-        width: 7,
         cols: ~["1", "2", "3", "4", "5", "6", "7", ],
         col_indent: ~" ",
         rows: ~["1", "2", "3", "4", "5", "6", ],
@@ -302,7 +300,6 @@ fn simple_exact_cover_instance_2() {
     //  he left out a number of details about where it should terminate
     //  unsuccessfully.)
     let m = Matrix {
-        width: 3,
         col_indent: ~"   ", cols: ~[ "1",    "2"],
         rows:      ~["   a", "   b"],
         elems: ~[0, 1, 1, 
