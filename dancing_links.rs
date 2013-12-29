@@ -106,8 +106,7 @@ impl<L:Clone,M:exact_cover::BitMatrix+exact_cover::ColLabelled<L>> dlx_matrix<L>
             ptrs
         };
 
-        // Apparently this use of Ptrs is problematic for rustc.
-        fn find_row(m: &Ptrs, col: uint, row: uint, dir: int) -> Option<Df> {
+        fn find_row(m: &Matrix<L, Option<Df>>, col: uint, row: uint, dir: int) -> Option<Df> {
             let update = |x:uint| {
                 (x as int + dir) as uint % m.cols.len()
             };
