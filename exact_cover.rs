@@ -121,12 +121,13 @@ impl<L:fmt::String, T:fmt::Default> fmt::Default for Matrix<L, T> {
         for l in obj.cols.iter() {
             write!(f.buf, "{:s} ", *l);
         }
+        let width = obj.cols.len();
         while cursor < obj.elems.len() {
             write!(f.buf, "|\n{:s}| ", obj.rows[line]);
-            for e in obj.elems.slice(cursor, cursor + obj.width).iter() {
+            for e in obj.elems.slice(cursor, cursor + width).iter() {
                 write!(f.buf, "{} ", *e);
             }
-            cursor = cursor + obj.width;
+            cursor = cursor + width;
             line = line + 1;
         }
         write!(f.buf, ")");
@@ -135,13 +136,11 @@ impl<L:fmt::String, T:fmt::Default> fmt::Default for Matrix<L, T> {
 
 impl<L, T> Matrix<L, T> {
     fn at<'a>(&'a self, col: uint, row: uint) -> &'a T {
-        let rw = row * self.width;
+        let width = self.cols.len();
+        let rw = row * width;
         let len = self.elems.len();
-        if (rw + col) >= len {
-            println!("row: {} * width: {} (= {}) + col: {} (= {}) len: {}",
-                     row, self.width, rw, col, rw+col, len);
-        }
-        &self.elems[(row * self.width) + col]
+        assert!(rw + col < len);
+        &self.elems[(row * width) + col]
     }
 }
 
@@ -154,14 +153,14 @@ impl ToBool for uint { fn to_bool(&self) -> bool { *self != 0u } }
 impl ToBool for int  { fn to_bool(&self) -> bool { *self != 0 } }
 
 impl<L:Clone, B:ToBool+Clone> BitMatrix for Matrix<L, B> {
-    fn num_cols(&self) -> uint { self.width }
-    fn num_rows(&self) -> uint { self.elems.len() / self.width }
+    fn num_cols(&self) -> uint { self.cols.len() }
+    fn num_rows(&self) -> uint { self.elems.len() / self.num_cols() }
     fn at(&self, col: uint, row: uint) -> bool { self.at(col, row).to_bool() }
     fn without_row(&self, row: uint) -> Matrix<L, B> {
         assert!(row < self.num_rows());
         let elems = self.elems.clone();
-        let lft = self.elems.slice_to(row * self.width);
-        let rgt = self.elems.slice_from((row+1) * self.width);
+        let lft = self.elems.slice_to(row * self.num_cols());
+        let rgt = self.elems.slice_from((row+1) * self.num_cols());
         let mut rows = self.rows.clone();
         rows.remove(row);
         Matrix { width: self.width, rows: rows,
@@ -176,7 +175,7 @@ impl<L:Clone, B:ToBool+Clone> BitMatrix for Matrix<L, B> {
         while cursor < len {
             accum.push_all(self.elems.slice(cursor, next_drop));
             cursor = next_drop + 1;
-            next_drop = min(len, next_drop + self.width);
+            next_drop = min(len, next_drop + self.num_cols());
         }
         let mut cols = self.cols.clone();
         cols.remove(col);
