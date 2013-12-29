@@ -2,13 +2,19 @@ use std::fmt;
 
 mod exact_cover;
 
+/// A Df is a reference to a DataObj owned by the matrix.
 #[deriving(Eq)]
 struct Df(uint);
+
+/// A Cf is a reference to a ColumnObj owned by the matrix.
 #[deriving(Eq)]
 struct Cf(uint);
 
+/// A DC is reference to either a DataObj or a ColumnObj.
 #[deriving(Eq)]
 enum DC { Ddc(Df), Cdc(Cf), }
+
+/// A CR is a reference to either a ColumnObj or the Root sentinel node.
 #[deriving(Eq)]
 enum CR { Ccr(Cf), Rootcr, }
 
@@ -20,12 +26,6 @@ struct dlx_matrix<L> {
     data: ~[DataObj],
     cols: ~[ColumnObj<L>],
     root: RootObj,
-}
-
-impl<LBL> dlx_matrix<LBL> {
-    fn data<'a>(&'a self, d: Df) -> &'a DataObj       { &'a self.data[*d] }
-    fn col<'a>(&'a self, c: Cf) -> &'a ColumnObj<LBL> { &'a self.cols[*c] }
-    fn root<'a>(&'a self) -> &'a RootObj              { &'a self.root      }
 }
 
 impl Df {
@@ -272,9 +272,6 @@ struct Dlx<'a, L> {
 
 impl<'a, L:fmt::String> Dlx<'a, L> {
 
-    fn col<'b>(&'b self, c: Cf) -> &'b ColumnObj<L> { self.m.col(c) }
-    fn data<'b>(&'b self, d: Df) -> &'b DataObj { self.m.data(d) }
-
     fn cover(&mut self, c: Cf) {
         let new_l = c.L(self.m);
         c.R(self.m).update_l(self.m, new_l);
@@ -334,9 +331,10 @@ impl<'a, L:fmt::String> Dlx<'a, L> {
             self.print_soln();
             return;
         }
-        let c = (*select_col)(self.m);
+        // Does the algorithm truly mutate `c` as it runs ...?
+        let mut c = (*select_col)(self.m);
         self.cover(c);
-        let mut r = self.col(c).D;
+        let mut r = c.D(self.m);
         loop {
             match r {
                 Cdc(_) => break,
@@ -347,22 +345,22 @@ impl<'a, L:fmt::String> Dlx<'a, L> {
                     } else {
                         self.soln[k] = rd;
                     }
-                    let mut j = self.data(rd).R;
+                    let mut j = rd.R(self.m);
                     while j != rd {
-                        let c = self.data(j).C;
+                        let c = j.C(self.m);
                         self.cover(c);
-                        j = self.data(j).R;
+                        j = j.R(self.m);
                     }
                     self.search(k+1, select_col);
                     rd = self.soln[k];
-                    let c = self.data(rd).C;
-                    let mut j = self.data(rd).L;
+                    c = rd.C(self.m); // ... is this line supposed to be here?
+                    let mut j = rd.L(self.m);
                     while j != rd {
-                        let c = self.data(j).C;
+                        let c = j.C(self.m);
                         self.uncover(c);
-                        j = self.data(j).L;
+                        j = j.L(self.m);
                     }
-                    r = self.data(rd).D;
+                    r = rd.D(self.m);
                 }
             }
         }
@@ -380,8 +378,8 @@ impl<'a, L:fmt::String> Dlx<'a, L> {
     fn print_row_containing(&self, d: Df) {
         let mut cursor = d;
         loop {
-            let obj = self.m.data(cursor);
-            print!("{:s} ", self.m.col(obj.C).N);
+            let obj = self.m.data[*cursor];
+            print!("{:s} ", self.m.cols[*cursor.C(self.m)].N);
             cursor = obj.R;
             if cursor == d {
                 break;
@@ -412,7 +410,7 @@ fn main() {
             match j {
                 Rootcr => break,
                 Ccr(jd) => {
-                    match (m.col(jd).S, s) {
+                    match (m.cols[*jd].S, s) {
                         (s2, None)                => { s = Some(s2); c = j; }
                         (s2, Some(s1)) if s2 < s1 => { s = Some(s2); c = j; }
                         _ => {} }
