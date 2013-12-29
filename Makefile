@@ -1,4 +1,11 @@
-default: exact_cover.bin run-exact_cover # run-latin-squares # run-bool # run-play # run-ll2 # run-ll # run-ex
+default: dancing_links.bin run-dancing_links 
+# exact_cover.bin run-exact_cover
+# run-latin-squares
+# run-bool
+# run-play
+# run-ll2
+# run-ll
+# run-ex
 
 run-sets: sets.bin
 run-graphs: graphs.bin
