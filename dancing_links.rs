@@ -1,21 +1,25 @@
+#![feature(phase)]
+#[phase(plugin, link)] extern crate log;
+extern crate debug;
+
 use std::fmt;
 
 mod exact_cover;
 
 /// A Df is a reference to a DataObj owned by the matrix.
-#[deriving(Eq)]
+#[deriving(PartialEq)]
 struct Df(uint);
 
 /// A Cf is a reference to a ColumnObj owned by the matrix.
-#[deriving(Eq)]
+#[deriving(PartialEq)]
 struct Cf(uint);
 
 /// A DC is reference to either a DataObj or a ColumnObj.
-#[deriving(Eq)]
+#[deriving(PartialEq)]
 enum DC { Ddc(Df), Cdc(Cf), }
 
 /// A CR is a reference to either a ColumnObj or the Root sentinel node.
-#[deriving(Eq)]
+#[deriving(PartialEq)]
 enum CR { Ccr(Cf), Rootcr, }
 
 struct DataObj { L: Df, R: Df, U: DC, D: DC, C: Cf }
@@ -23,13 +27,13 @@ struct ColumnObj<Label> { L: CR, R: CR, U: DC, D: DC, C: Cf, S: uint, N: Label }
 struct RootObj { L: CR, R: CR }
 
 struct dlx_matrix<L> {
-    data: ~[DataObj],
-    cols: ~[ColumnObj<L>],
+    data: Vec<DataObj>,
+    cols: Vec<ColumnObj<L>>,
     root: RootObj,
 }
 
 impl Df {
-    fn L<LBL>(&self, m: &dlx_matrix<LBL>) -> Df { m.data[**self].L }
+    fn L<LBL>(&Df(i): &Self, m: &dlx_matrix<LBL>) -> Df { m.data[i].L }
     fn R<LBL>(&self, m: &dlx_matrix<LBL>) -> Df { m.data[**self].R }
     fn D<LBL>(&self, m: &dlx_matrix<LBL>) -> DC { m.data[**self].D }
     fn U<LBL>(&self, m: &dlx_matrix<LBL>) -> DC { m.data[**self].U }
@@ -41,7 +45,7 @@ impl Cf {
     fn R<LBL>(&self, m: &dlx_matrix<LBL>) -> CR { m.cols[**self].R }
     fn D<LBL>(&self, m: &dlx_matrix<LBL>) -> DC { m.cols[**self].D }
     fn U<LBL>(&self, m: &dlx_matrix<LBL>) -> DC { m.cols[**self].U }
-    fn S<'a, LBL>(&self, m: &'a mut dlx_matrix<LBL>) -> &'a mut uint { &'a mut m.cols[**self].S }
+    fn S<'a, LBL>(&self, m: &'a mut dlx_matrix<LBL>) -> &'a mut uint { &mut m.cols[**self].S }
 }
 
 trait LRLinked<Ctxt, Rf> {
@@ -134,10 +138,10 @@ impl<L:Clone,M:exact_cover::BitMatrix+exact_cover::ColLabelled<L>+exact_cover::R
         use exact_cover::Matrix;
 
         let mut m : dlx_matrix<L> = dlx_matrix::<L> {
-            data: ~[], cols: ~[], root: RootObj { L: Rootcr, R: Rootcr }
+            data: vec![], cols: vec![], root: RootObj { L: Rootcr, R: Rootcr }
         };
 
-        let mut col_labels = ~[];
+        let mut col_labels = vec![];
         for i in range(0, input.num_cols()) {
             let l : L = input.col_label(i).clone();
             col_labels.push(l.clone());
@@ -168,11 +172,11 @@ impl<L:Clone,M:exact_cover::BitMatrix+exact_cover::ColLabelled<L>+exact_cover::R
 
         type Ptrs<L> = Matrix<L, Option<Df>>;
         let mut ptrs = {
-            let init_ptrs : ~[Option<Df>] = ~[];
+            let init_ptrs : Vec<Option<Df>> = vec![];
             let mut ptrs = Matrix {
-                col_indent: ~"",
+                col_indent: "".into_owned(),
                 cols: col_labels,
-                rows: ~[],
+                rows: vec![],
                 elems: init_ptrs
             };
 
@@ -266,7 +270,7 @@ impl<L:Clone,M:exact_cover::BitMatrix+exact_cover::ColLabelled<L>+exact_cover::R
 
 struct Dlx<'a, L> {
     m: &'a mut dlx_matrix<L>,
-    soln: ~[Df],
+    soln: Vec<Df>,
     count_updates: uint,
 }
 
@@ -393,7 +397,7 @@ fn main() {
     println!("Hello world input: {}", input);
     let mut m = dlx_matrix::new(&input);
     // println!("yields {:?}", m);
-    let mut dlx = Dlx { m: &mut m, soln: ~[], count_updates: 0 };
+    let mut dlx = Dlx { m: &mut m, soln: vec![], count_updates: 0 };
 
     let trivial_col_choice = |m:&dlx_matrix<&'static str>| {
         match m.root.R {
