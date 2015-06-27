@@ -278,7 +278,7 @@ pub struct GrayBitVecs {
     n: usize, parity_bit: u8, state: Vec<Bigit>
 }
 
-fn gray(n: usize) -> GrayBitVecs {
+pub fn gray(n: usize) -> GrayBitVecs {
     GrayBitVecs { n: n, parity_bit: 0, state: zero_bigits(n) }
 }
 
