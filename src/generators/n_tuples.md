@@ -46,15 +46,17 @@ fn zero_bigits(n: usize) -> Vec<Bigit> {
     init_state
 }
 
-fn lexicographic(n: usize) -> LexicoBitVecs {
-    let rem = n % width();
-    let seek = if rem == 0 {
-        bigit::MAX
-    } else {
-        bigit::MAX >> (width()-rem)
-    };
-    // println!("n: {} width: {} rem: {}", n, width, rem);
-    LexicoBitVecs { seek: seek, state: zero_bigits(n) }
+impl LexicoBitVecs {
+    fn new(n: usize) -> LexicoBitVecs {
+        let rem = n % width();
+        let seek = if rem == 0 {
+            bigit::MAX
+        } else {
+            bigit::MAX >> (width()-rem)
+        };
+        // println!("n: {} width: {} rem: {}", n, width, rem);
+        LexicoBitVecs { seek: seek, state: zero_bigits(n) }
+    }
 }
 
 impl LexicoBitVecs {
@@ -106,7 +108,7 @@ use self::bitvecs::lexicographic as bitvecs;
 
 #[test]
 fn bitvecs_n01_init() {
-    assert_eq!(lexicographic(1),
+    assert_eq!(LexicoBitVecs::new(1),
                LexicoBitVecs { seek: 0b_1, state: vec![0] })
 }
 
@@ -119,7 +121,7 @@ fn bitvecs_n01() {
 
 #[test]
 fn bitvecs_n02_init() {
-    assert_eq!(lexicographic(2),
+    assert_eq!(LexicoBitVecs::new(2),
                LexicoBitVecs { seek: 0b_11, state: vec![0] });
 }
 
@@ -134,7 +136,7 @@ fn bitvecs_n02() {
 fn bitvecs_n15() {
     if mem::size_of::<Bigit>() == 1 {
         let last_bigit = 0b_11_11111;
-        assert_eq!(lexicographic(15),
+        assert_eq!(LexicoBitVecs::new(15),
                    LexicoBitVecs { seek: last_bigit,
                              state: vec![0, 0] });
         let mut count = 0;
@@ -148,7 +150,7 @@ fn bitvecs_n15() {
         assert_eq!(last_result, vec![ones, last_bigit]);
     } else {
         let last_bigit = 0b_11111_11111_11111_u16 as Bigit;
-        assert_eq!(lexicographic(15),
+        assert_eq!(LexicoBitVecs::new(15),
                    LexicoBitVecs { seek: last_bigit,
                              state: vec![0] });
         let mut count = 0;
@@ -359,7 +361,7 @@ pub mod bitvecs {
     }
     #[inline]
     pub fn lexicographic(n: usize) -> BitVecs {
-        BitVecs::Lexico(super::lexicographic(n))
+        BitVecs::Lexico(super::LexicoBitVecs::new(n))
     }
 }
 
