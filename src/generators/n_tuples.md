@@ -24,8 +24,66 @@ pub trait Generator {
               R: Into<Control<Self::Final>>;
 }
 
+/*
+trait GenThenTest {
+    type Item: ?Sized;
+    fn curr<'a>(&'a self) -> Cow<'a, Self::Item>;
+    fn increment(&mut self);
+    fn done_after_increment(&self) -> bool;
+}
 
-#[derive(PartialEq, Eq, Debug)]
+trait TestThenGen {
+    type Item: ?Sized;
+    fn curr<'a>(&'a self) -> Cow<'a, Self::Item>;
+    fn done(&self) -> bool;
+    fn increment_when_not_done(&mut self);
+}
+
+struct TestFirstGenerator<'a, G:'a + TestThenGen + Clone>(&'a mut G);
+struct GenFirstGenerator<'a, G:'a + GenThenTest + Clone>(&'a mut G);
+
+impl<'a, G:'a + Clone + TestThenGen> Generator for TestFirstGenerator<'a, G> {
+    type Item = G::Item;
+    type Final = ();
+    fn gen<F, R>(&mut self, mut visit: F) -> Self::Final where
+        F: for <'b> FnMut(Cow<'b, G::Item>) -> R,
+        R: Into<Control<Self::Final>>
+    {
+        loop {
+            let call_result = visit(self.0.curr());
+            match call_result.into() {
+                Control::Break(()) => return,
+                Control::Yield => ()
+            }
+            if self.0.done() { break; }
+            self.0.increment_when_not_done();
+        }
+    }
+}
+
+impl<'a, G:'a + Clone + GenThenTest> Generator for GenFirstGenerator<'a, G> where
+    for <'b> Cow<'b, G::Item>: Clone
+{
+    type Item = <G as GenThenTest>::Item;
+    type Final = ();
+    fn gen<F, R>(&mut self, mut visit: F) -> Self::Final where
+        F: for <'b> FnMut(Cow<'b, Self::Item>) -> R,
+        R: Into<Control<Self::Final>>
+    {
+        loop {
+            let call_result = visit(self.0.curr());
+            match call_result.into() {
+                Control::Break(()) => return,
+                Control::Yield => ()
+            }
+            self.0.increment();
+            if self.0.done_after_increment() { break; }
+        }
+    }
+}
+ */
+
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct LexicoBitVecs { seek: Bigit, state: Vec<Bigit>, }
 
 fn width() -> usize {
@@ -103,13 +161,61 @@ impl Generator for LexicoBitVecs {
     }
 }
 
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub struct LexicoU64s { seek: u64, state: u64, }
+
+impl LexicoU64s {
+    fn new(n: usize) -> LexicoU64s {
+        assert!(n <= 64);
+        let seek = ::std::u64::MAX >> (64 - (n % 64));
+        LexicoU64s { seek: seek, state: 0 }
+    }
+}
+
+impl LexicoU64s {
+    fn done(&self) -> bool {
+        self.state == self.seek
+    }
+    fn increment_when_not_done(&mut self) {
+        self.state += 1;
+    }
+}
+
+impl Generator for LexicoU64s {
+    type Item = u64;
+    type Final = ();
+    fn gen<F, R>(&mut self, mut visit: F)
+        where F: for <'a> FnMut(Cow<'a, Self::Item>) -> R,
+              R: Into<Control<()>>
+    {
+        loop {
+            let call_result = visit(Cow::Owned(self.state));
+            match call_result.into() {
+                Control::Break(()) => return,
+                Control::Yield => ()
+            }
+            if self.done() { return; }
+            self.increment_when_not_done();
+        }
+    }
+}
+
 #[cfg(test)]
 use self::bitvecs::lexicographic as bitvecs;
+
+#[cfg(test)]
+use self::u64s::lexicographic as u64s;
 
 #[test]
 fn bitvecs_n01_init() {
     assert_eq!(LexicoBitVecs::new(1),
                LexicoBitVecs { seek: 0b_1, state: vec![0] })
+}
+
+#[test]
+fn u64s_n01_init() {
+    assert_eq!(LexicoU64s::new(1),
+               LexicoU64s { seek: 0b_1, state: 0 })
 }
 
 #[test]
@@ -120,9 +226,22 @@ fn bitvecs_n01() {
 }
 
 #[test]
+fn u64s_n01() {
+    let mut results: Vec<u64> = vec![];
+    u64s(1).gen(|v| results.push(*v));
+    assert_eq!(results, [0, 1]);
+}
+
+#[test]
 fn bitvecs_n02_init() {
     assert_eq!(LexicoBitVecs::new(2),
                LexicoBitVecs { seek: 0b_11, state: vec![0] });
+}
+
+#[test]
+fn u64s_n02_init() {
+    assert_eq!(LexicoU64s::new(2),
+               LexicoU64s { seek: 0b_11, state: 0 });
 }
 
 #[test]
@@ -130,6 +249,13 @@ fn bitvecs_n02() {
     let mut results: Vec<Vec<Bigit>> = vec![];
     bitvecs(2).gen(|v| results.push(v.into_owned()));
     assert_eq!(results, [[0], [1], [2], [3]]);
+}
+
+#[test]
+fn u64s_n02() {
+    let mut results: Vec<u64> = vec![];
+    u64s(2).gen(|v| results.push(*v));
+    assert_eq!(results, [0, 1, 2, 3]);
 }
 
 #[test]
@@ -166,7 +292,7 @@ fn bitvecs_n15() {
 
 #[cfg(feature="benchmarking")]
 #[bench]
-fn bitvecs_n33(b: &mut ::test::Bencher) {
+fn bitvecs_n22(b: &mut ::test::Bencher) {
     const K: usize = 22;
     b.iter(|| {
         let last_bigit = !0 >> (width() - (K % width())) as Bigit;
@@ -174,10 +300,29 @@ fn bitvecs_n33(b: &mut ::test::Bencher) {
         let mut last_result = 0;
         bitvecs(K).gen(|v| {
             count += 1;
+            ::test::black_box(&v);
             last_result = *v.last().unwrap();
         });
         assert_eq!(count, 1 << K);
         assert_eq!(last_result, last_bigit);
+    })
+}
+
+#[cfg(feature="benchmarking")]
+#[bench]
+fn u64s_n22(b: &mut ::test::Bencher) {
+    const K: usize = 22;
+    b.iter(|| {
+        let last_expected = !0 >> (64 - 22);
+        let mut count: u64 = 0;
+        let mut last_result = 0;
+        u64s(K).gen(|v| {
+            count += 1;
+            ::test::black_box(&v);
+            last_result = *v;
+        });
+        assert_eq!(count, 1 << K);
+        assert_eq!(last_result, last_expected);
     })
 }
 
@@ -356,12 +501,18 @@ fn gray_n4() {
 }
 
 pub mod bitvecs {
-    pub enum BitVecs {
-        Lexico(super::LexicoBitVecs)
-    }
+    pub enum BitVecs { Lexico(super::LexicoBitVecs) }
     #[inline]
     pub fn lexicographic(n: usize) -> BitVecs {
         BitVecs::Lexico(super::LexicoBitVecs::new(n))
+    }
+}
+
+pub mod u64s {
+    pub enum U64s { Lexico(super::LexicoU64s) }
+    #[inline]
+    pub fn lexicographic(n: usize) -> U64s {
+        U64s::Lexico(super::LexicoU64s::new(n))
     }
 }
 
@@ -375,7 +526,26 @@ impl Generator for BitVecs {
               R: Into<Control<Self::Final>>
     {
         match *self {
-            BitVecs::Lexico(ref mut b) => b.gen(visit),
+            BitVecs::Lexico(ref mut b) => {
+                b.gen(visit)
+            }
+        }
+    }
+}
+
+use self::u64s::U64s;
+
+impl Generator for U64s {
+    type Item = u64;
+    type Final = ();
+    fn gen<F, R>(&mut self, visit: F) -> Self::Final
+        where F: for <'a> FnMut(Cow<'a, Self::Item>) -> R,
+              R: Into<Control<Self::Final>>
+    {
+        match *self {
+            U64s::Lexico(ref mut b) => {
+                b.gen(visit)
+            }
         }
     }
 }
