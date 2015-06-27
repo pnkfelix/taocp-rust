@@ -24,24 +24,100 @@ pub trait Generator {
               R: Into<Control<Self::Final>>;
 }
 
-/*
-trait GenThenTest {
-    type Item: ?Sized;
-    fn curr<'a>(&'a self) -> Cow<'a, Self::Item>;
+pub trait GenThenTest {
     fn increment(&mut self);
     fn done_after_increment(&self) -> bool;
 }
 
-trait TestThenGen {
-    type Item: ?Sized;
-    fn curr<'a>(&'a self) -> Cow<'a, Self::Item>;
+pub trait GenThenTestYieldOwned: GenThenTest {
+    type Owned: Clone;
+    fn curr(&self) -> Self::Owned;
+}
+
+pub trait GenThenTestYieldBorrowed: GenThenTest {
+    type Borrowed: ?Sized;
+    fn curr<'a>(&'a self) -> &'a Self::Borrowed;
+}
+
+pub trait TestThenGen {
     fn done(&self) -> bool;
     fn increment_when_not_done(&mut self);
 }
 
-struct TestFirstGenerator<'a, G:'a + TestThenGen + Clone>(&'a mut G);
-struct GenFirstGenerator<'a, G:'a + GenThenTest + Clone>(&'a mut G);
+pub trait TestThenGenYieldOwned: TestThenGen {
+    type Owned: Clone;
+    fn curr(&self) -> Self::Owned;
+}
 
+pub trait TestThenGenYieldBorrowed: TestThenGen {
+    type Borrowed: ?Sized;
+    fn curr<'a>(&'a self) -> &'a Self::Borrowed;
+}
+
+pub struct TestGenMoveGenerator<'a, TGO>(&'a mut TGO) where TGO: 'a + TestThenGenYieldOwned;
+pub struct TestGenReadGenerator<'a, TGR>(&'a mut TGR) where TGR: 'a + TestThenGenYieldBorrowed;
+pub struct GenTestMoveGenerator<'a, GTM>(&'a mut GTM) where GTM: 'a + GenThenTestYieldOwned;
+pub struct GenTestReadGenerator<GTR>(GTR) where GTR: GenThenTestYieldBorrowed;
+
+impl<'b, TGO: TestThenGenYieldOwned> Generator for TestGenMoveGenerator<'b, TGO> {
+    type Item = TGO::Owned;
+    type Final = ();
+    fn gen<F, R>(&mut self, mut visit: F)
+        where F: for <'a> FnMut(Cow<'a, Self::Item>) -> R,
+              R: Into<Control<()>>
+    {
+        loop {
+            let call_result = visit(Cow::Owned(self.0.curr()));
+            match call_result.into() {
+                Control::Break(()) => return,
+                Control::Yield => ()
+            }
+            if self.0.done() { return; }
+            self.0.increment_when_not_done();
+        }
+    }
+}
+
+#[cfg(not_yet)]
+impl<'b, TGO: TestThenGenYieldBorrowed> Generator for TestGenReadGenerator<'b, TGO> {
+    type Item = TGO::Borrowed;
+    type Final = ();
+    fn gen<F, R>(&mut self, mut visit: F)
+        where F: for <'a> FnMut(Cow<'a, Self::Item>) -> R,
+              R: Into<Control<()>>
+    {
+        loop {
+            let call_result = visit(Cow::Borrowed(self.0.curr()));
+            match call_result.into() {
+                Control::Break(()) => return,
+                Control::Yield => ()
+            }
+            if self.0.done() { return; }
+            self.0.increment_when_not_done();
+        }
+    }
+}
+
+impl<'b, GTM: GenThenTestYieldOwned> Generator for GenTestMoveGenerator<'b, GTM> {
+    type Item = GTM::Owned;
+    type Final = ();
+    fn gen<F, R>(&mut self, mut visit: F)
+        where F: for <'a> FnMut(Cow<'a, Self::Item>) -> R,
+              R: Into<Control<()>>
+    {
+        loop {
+            let call_result = visit(Cow::Owned(self.0.curr()));
+            match call_result.into() {
+                Control::Break(()) => return,
+                Control::Yield => ()
+            }
+            self.0.increment();
+            if self.0.done_after_increment() { return; }
+        }
+    }
+}
+
+/*
 impl<'a, G:'a + Clone + TestThenGen> Generator for TestFirstGenerator<'a, G> {
     type Item = G::Item;
     type Final = ();
@@ -117,7 +193,7 @@ impl LexicoBitVecs {
     }
 }
 
-impl LexicoBitVecs {
+impl TestThenGen for LexicoBitVecs {
     fn done(&self) -> bool {
         let mut i = self.state.iter().rev();
         if *i.next().unwrap() != self.seek {
@@ -138,6 +214,13 @@ impl LexicoBitVecs {
                 *w = 0;
             }
         }
+    }
+}
+
+impl TestThenGenYieldBorrowed for LexicoBitVecs {
+    type Borrowed = [u32];
+    fn curr<'a>(&'a self) -> &'a Self::Borrowed {
+        &self.state[..]
     }
 }
 
@@ -172,15 +255,17 @@ impl LexicoU64s {
     }
 }
 
-impl LexicoU64s {
-    fn done(&self) -> bool {
-        self.state == self.seek
-    }
-    fn increment_when_not_done(&mut self) {
-        self.state += 1;
-    }
+impl TestThenGen for LexicoU64s {
+    fn done(&self) -> bool { self.state == self.seek }
+    fn increment_when_not_done(&mut self) { self.state += 1; }
 }
 
+impl TestThenGenYieldOwned for LexicoU64s {
+    type Owned = u64;
+    fn curr(&self) -> u64 { self.state }
+}
+
+#[cfg(not_anymore)]
 impl Generator for LexicoU64s {
     type Item = u64;
     type Final = ();
@@ -528,6 +613,7 @@ impl Generator for BitVecs {
         match *self {
             BitVecs::Lexico(ref mut b) => {
                 b.gen(visit)
+                // TestGenReadGenerator(b).gen(visit)
             }
         }
     }
@@ -544,7 +630,7 @@ impl Generator for U64s {
     {
         match *self {
             U64s::Lexico(ref mut b) => {
-                b.gen(visit)
+                TestGenMoveGenerator(b).gen(visit)
             }
         }
     }
