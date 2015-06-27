@@ -8,7 +8,7 @@ fn mixed_radix_lexicographic<N:Num>(m: ~[N]) -> MixedRadixLexIterator<N> {
 
 impl<N:Num> Iterator<~[N]> for MixedRadixLexIterator<N> {
     fn next(&mut self) -> Option<N> {
-        
+
     }
 }
 
