@@ -9,6 +9,9 @@ build = "taocp-build.rs"
 [dependencies]
 log = "*"
 
+[features]
+benchmarking = [] # feature has no explicit dependencies
+
 # The preprocessor is the `tango` crate, so we need to add that
 # to the build-dependencies.
 
