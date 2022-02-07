@@ -7,3 +7,7 @@ edition = "2021"
 
 [dependencies]
 iterator_item = { git = "https://github.com/estebank/iterator_item.git" }
+
+[[bin]]
+name = "latin-squares"
+path = "src/latin-squares.rs"
