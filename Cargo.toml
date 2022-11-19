@@ -1,4 +1,5 @@
 [workspace]
 members = [
+    "bool_eval",
     "combinatorics"
 ]
