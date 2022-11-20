@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "vol_1",
     "bool_eval",
     "combinatorics"
 ]
