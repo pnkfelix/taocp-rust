@@ -2,8 +2,21 @@ mod sect_1_3_2 {
     const H: u8 = 9;
     const W: u8 = 8;
     const LEN: usize = (H * W) as usize;
-    #[derive(PartialEq, Eq, Debug)]
+    #[derive(PartialEq, Eq)]
     struct NineByEight([u32; LEN]);
+    impl std::fmt::Debug for NineByEight {
+        fn fmt(&self, w: &mut std::fmt::Formatter) -> std::fmt::Result {
+            let mut rows = self.0[..].chunks(W as usize);
+            for row in rows {
+                row.fmt(w)?;
+            }
+            Ok(())
+        }
+    }
+
+    trait SaddlePoint {
+        fn saddle_point(&self) -> Option<(u8, u8)>;
+    }
     impl NineByEight {
         fn build(f: impl Fn(u8, u8) -> u32) -> Self {
             let mut m = [0; LEN];
@@ -24,6 +37,8 @@ mod sect_1_3_2 {
         fn row(idx: usize) -> u8 {
             (idx / W as usize).try_into().unwrap()
         }
+    }
+    impl SaddlePoint for NineByEight {
         fn saddle_point(&self) -> Option<(u8, u8)> {
             for i in 0..H {
                 // find smallest in row i
@@ -77,6 +92,20 @@ mod sect_1_3_2 {
                 _ => 0,
             }
         }).saddle_point(), Some((3, 4)));
+
+        // Check some cases where there is no saddle point
+        assert_eq!(NineByEight::build(|i, j| {
+            if i == j { 10 } else { 0 }
+        }).saddle_point(), None);
+        let delta = NineByEight::build(|i, j| {
+                (if i > j { i - j } else { j - i }) as u32
+        });
+        // dbg!(&delta);
+        assert_eq!(delta.saddle_point(), None);
+
+        // Interesting corner case: a matrix with all the same value has *every*
+        // position as a saddle point.
+        assert_eq!(NineByEight::build(|i, j| 0).saddle_point(), Some((0, 0)));
     }
 }
 
