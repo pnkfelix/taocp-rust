@@ -188,6 +188,10 @@ pub mod ex_13 {
     //
     // My reading of that is: use async IO! But is that silly? Ha hah. Well lets
     // try a sync version first at least.
+    //
+    // Note: these exercises have been moved around; it looks like it will be
+    // exercise 25 when we get around to the next edition, at least based on the
+    // the MMIX Fascicle.
 
     pub fn frequency_count_sync(bytes: impl Iterator<Item=u8>) -> String {
         const LEN: usize = (u8::MAX as usize) + 1;
@@ -206,3 +210,57 @@ pub mod ex_13 {
         buf
     }
 }
+
+pub mod mmix_ex_21 {
+    fn farey(n: u32) -> Vec<(u32, u32)> {
+        // e.g. for n=7, we want to produce:
+        // 0/1 1/7 1/6 1/5 1/4 2/7 1/3 2/5 3/7 1/2
+        //         4/7 3/5 2/3 5/7 3/4 4/5 5/6 6/7 1/1
+
+        // recurrence provided by Knuuth:
+        // x[0] = 0
+        // y[0] = 1
+        // x[1] = 1
+        // y[1] = n
+        // x[k+2] = floor((y[k] + n) / y[k+1]) * x[k+1] - x[k]
+        // y[k+2] = floor((y[k] + n) / y[k+1]) * y[k+1] - y[k]
+
+        let mut vec = Vec::new();
+        let mut k = 0;
+        let mut x_k = 0;
+        let mut y_k = 1;
+        let mut x_k1 = 1;
+        let mut y_k1 = n;
+
+        vec.push((x_k, y_k));
+        vec.push((x_k1, y_k1));
+
+        while x_k1 != y_k1 {
+            let (x_k2, y_k2) = {
+                let floored = (y_k + n) / y_k1;
+                let x_k2 = floored * x_k1 - x_k;
+                let y_k2 = floored * y_k1 - y_k;
+                (x_k2, y_k2)
+            };
+            vec.push((x_k2, y_k2));
+
+            k += 1;
+            x_k = x_k1;
+            y_k = y_k1;
+            x_k1 = x_k2;
+            y_k1 = y_k2;
+        }
+
+        vec
+    }
+
+    #[test]
+    fn test_farey() {
+        let expect = vec![
+            (0,1), (1,7), (1,6), (1,5), (1,4), (2,7), (1,3), (2,5), (3,7),
+            (1,2), (4,7), (3,5), (2,3), (5,7), (3,4), (4,5), (5,6), (6,7),
+            (1,1)];
+            assert_eq!(farey(7), expect);
+    }
+}
+
