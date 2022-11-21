@@ -2,7 +2,7 @@ mod sect_1_3_2 {
     const H: u8 = 9;
     const W: u8 = 8;
     const LEN: usize = (H * W) as usize;
-    #[derive(PartialEq, Eq)]
+    #[derive(Copy, Clone, PartialEq, Eq)]
     struct NineByEight([u32; LEN]);
     impl std::fmt::Debug for NineByEight {
         fn fmt(&self, w: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -66,6 +66,48 @@ mod sect_1_3_2 {
             return None;
         }
     }
+    struct AltSaddlePoint(NineByEight);
+    impl SaddlePoint for AltSaddlePoint {
+        fn saddle_point(&self) -> Option<(u8, u8)> {
+            let find_col_max = |j| -> u32 {
+                let mut col_max = self.0.0[NineByEight::idx(0, j)];
+                for i in 1..H {
+                    let val = self.0.0[NineByEight::idx(i, j)];
+                    if val > col_max {
+                        col_max = val;
+                    }
+                }
+                col_max
+            };
+            let min_of_col_max = {
+                let mut min_of_col_max = find_col_max(0);
+                for j in 1..W {
+                    let col_max = find_col_max(j);
+                    if col_max < min_of_col_max {
+                        min_of_col_max = col_max;
+                    }
+                }
+                min_of_col_max
+            };
+            let find_row_min = |i| -> (u8, u32) {
+                let mut row_min = (0, self.0.0[NineByEight::idx(i, 0)]);
+                for j in 1..W {
+                    let val = self.0.0[NineByEight::idx(i, j)];
+                    if val < row_min.1 {
+                        row_min = (j, val);
+                    }
+                }
+                row_min
+            };
+            for i in 0..H {
+                let (j, row_min) = find_row_min(i);
+                if row_min == min_of_col_max {
+                    return Some((i, j));
+                }
+            }
+            return None;
+        }
+    }
     #[test]
     fn ex_10() {
         let simple = NineByEight([1, 2, 2, 2, 2, 2, 2, 2,
@@ -84,28 +126,41 @@ mod sect_1_3_2 {
                 _ => 0,
             }
         }));
+
+        macro_rules! test_both {
+            (($nxe: expr).saddle_point(), $expect: expr) => {
+                {
+                    let nxe = $nxe;
+                    assert_eq!(nxe.saddle_point(), $expect);
+                    assert_eq!(AltSaddlePoint(nxe).saddle_point(), $expect);
+                }
+            }
+        }
+
         assert_eq!(simple.saddle_point(), Some((0, 0)));
-        assert_eq!(NineByEight::build(|i, j| {
+        assert_eq!(AltSaddlePoint(simple).saddle_point(), Some((0, 0)));
+        test_both!((simple).saddle_point(), Some((0, 0)));
+        test_both!((NineByEight::build(|i, j| {
             match (i, j) {
                 (3, 4) => 10,
                 (3, _) => 20,
                 _ => 0,
             }
-        }).saddle_point(), Some((3, 4)));
+        })).saddle_point(), Some((3, 4)));
 
         // Check some cases where there is no saddle point
-        assert_eq!(NineByEight::build(|i, j| {
+        test_both!((NineByEight::build(|i, j| {
             if i == j { 10 } else { 0 }
-        }).saddle_point(), None);
+        })).saddle_point(), None);
         let delta = NineByEight::build(|i, j| {
                 (if i > j { i - j } else { j - i }) as u32
         });
         // dbg!(&delta);
-        assert_eq!(delta.saddle_point(), None);
+        test_both!((delta).saddle_point(), None);
 
         // Interesting corner case: a matrix with all the same value has *every*
         // position as a saddle point.
-        assert_eq!(NineByEight::build(|i, j| 0).saddle_point(), Some((0, 0)));
+        test_both!((NineByEight::build(|i, j| 0)).saddle_point(), Some((0, 0)));
     }
 }
 
