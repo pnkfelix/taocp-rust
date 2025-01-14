@@ -1,7 +1,6 @@
 ```rust
 #![feature(test)]
 
-#[macro_use]
 extern crate log;
 
 extern crate test;
