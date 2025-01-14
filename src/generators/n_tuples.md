@@ -432,7 +432,7 @@ impl Tuples {
     }
 
     fn increment(&mut self) {
-        for i in (0..self.limits.len()) {
+        for i in 0..self.limits.len() {
             let mut v = self.state[i];
             v += 1;
             if v == self.limits[i] {
