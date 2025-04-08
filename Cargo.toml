@@ -1,6 +1,8 @@
 [workspace]
 members = [
     "vol_1",
+    "backtrack",
     "bool_eval",
-    #"combinatorics",
-    "backtrack"]
+    #"combinatorics"
+    "tree_enum",
+    ]

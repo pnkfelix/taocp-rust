@@ -1,0 +1,16 @@
+[package]
+name = "tree_enum"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bytecount = "0.6.8"
+
+[dev-dependencies]
+pretty_assertions = "1.4.1"
+
+[features]
+default = ["s_exp"]
+s_exp = []
