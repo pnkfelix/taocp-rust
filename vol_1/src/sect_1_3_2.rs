@@ -264,3 +264,143 @@ pub mod mmix_ex_21 {
     }
 }
 
+pub mod mmix_ex_27 {
+    fn fib(i: u64) -> u64 {
+        let mut n = 0;
+        let mut f_n = 0;
+        let mut f_n1 = 1;
+        loop {
+            if i == n { return f_n; }
+            let f_n2 = f_n1 + f_n;
+            n += 1;
+            f_n = f_n1;
+            f_n1 = f_n2;
+        }
+    }
+
+    #[test]
+    fn check_fib() {
+        assert_eq!(fib(0), 0);
+        assert_eq!(fib(1), 1);
+        assert_eq!(fib(2), 1);
+        assert_eq!(fib(3), 2);
+        assert_eq!(fib(4), 3);
+        assert_eq!(fib(5), 5);
+        assert_eq!(fib(6), 8);
+        assert_eq!(fib(7), 13);
+        assert_eq!(fib(8), 21);
+        assert_eq!(fib(9), 34);
+    }
+
+    // Oh no, the sqrt function is not available in `const fn`.
+    fn sqrt_5() -> f64 { 5_f64.sqrt() }
+
+    /// PHI is defined to be 1/2 * (1 + sqrt(5))
+    fn phi() -> f64 { (1.0 + sqrt_5()) / 2.0 }
+
+    // Equation 1.2.8-15 says
+    // F_n = PHI^n / sqrt(5) rounded to nearest integer.
+
+    // Compute "straight-forward approximations to PHI^n / sqrt(5) for n = 0,1,2,...
+    // seeking smallest n for which the approximation does not round for F_n.
+
+    #[derive(Debug)]
+    pub struct Divergence {
+        n: u64,
+        f_n: u64,
+        approx: u64,
+    }
+
+    /// Finds first n for which round(phi^n / sqrt(5)) does not equal F_n due to
+    /// floating-point divergence.
+    pub fn search_float_divergence() -> Divergence {
+        let mut n = 0_u64;
+        let mut phi_to_n = 1_f64; // phi^0 = 1
+        loop {
+            let phi_to_n_div_sqrt_5 = phi_to_n / sqrt_5();
+            let f_n = fib(n);
+            let round = phi_to_n_div_sqrt_5.round() as u64;
+            if round != f_n { return Divergence { n, f_n, approx: round }; }
+
+            phi_to_n *= phi();
+            n += 1;
+        }
+    }
+
+    /// Finds first n >= 3 for which F_n = round(phi * F_{n-1}) fails for
+    /// fixed-point multiplication of u64.
+    ///
+    /// I assume the statement above is a consequence of fact that
+    /// phi = lim_{n to infty} fib(n+1) / f(n)
+    pub fn search_fixed_divergence_v0() -> Divergence {
+        //? Note that phi^{-1} = phi - 1.
+        const ONE_OVER_PHI: u64 = 0x9e37_79b9_7f4a_7c16;
+
+        println!("phi^-2 {:x?}", ONE_OVER_PHI.carrying_mul(ONE_OVER_PHI, 0));
+
+        // (phi - 1) * F_n
+        // phi * F_n - F_n
+
+        // (1/phi + 1) * F_n
+        // (1/phi * F_n) + F_n
+
+        let mut n: u64 = 2;
+        let mut f_n: u64 = 1;
+        let mut f_n1: u64 = 2;
+        loop {
+            let (lo, hi) = ONE_OVER_PHI.carrying_mul(f_n, 0);
+            let round = if lo >= 0x8000_0000_0000_0000 { hi + f_n + 1 } else { hi + f_n };
+            println!("(lo, hi, n, f_n, round) {:x?}", (lo, hi, n, f_n, round));
+            if n >= 3 && fib(n) != round {
+                return Divergence {
+                    n,
+                    f_n,
+                    approx: round,
+                };
+            }
+            let f_n2 = f_n + f_n1;
+            n += 1;
+            f_n = f_n1;
+            f_n1 = f_n2;
+        }
+    }
+
+    pub fn search_fixed_divergence() -> Divergence {
+
+        let mut t;
+        let mut n = 0;
+        let mut new: u64;
+        let mut old: u64;
+        let phii: u64 = 0x9e37_79b9_7f4a_7c16;
+        let mut lo: u64;
+        let mut hi: u64;
+        let mut hihi;
+
+        'main: {
+            n = 2;
+            old = 1;
+            new = 1;
+        }
+        '_1H: loop {
+            new = new + old;
+            n += 1;
+            t = new.cmp(&old);
+            if t == std::cmp::Ordering::Less {
+                dbg!((t, new, old));
+                return Divergence { n, f_n: 0, approx: 0 };
+            }
+            old = new - old;
+            let (l, h) = old.carrying_mul(phii, 0);
+            lo = l;
+            hi = h;
+            hi = hi + old;
+            hihi = hi + 1;
+            if lo < 0 { hi = hihi; }
+            t = hi.cmp(&new);
+            if t == std::cmp::Ordering::Equal { continue; }
+            dbg!((t, hi, new));
+            return Divergence { n, f_n: 0, approx: 0 }
+        }
+    }
+
+}
