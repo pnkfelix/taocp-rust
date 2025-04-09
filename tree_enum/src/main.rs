@@ -412,7 +412,7 @@ pub mod xml {
     impl Xexpr {
         pub fn render_xml(&self) -> String {
             let mut buf = String::new();
-            self.write_xml(&mut buf, Spacing::four()).unwrap();
+            self.write_xml(&mut buf, Spacing::zero()).unwrap();
             buf
         }
         pub fn write_xml(&self, buf: &mut dyn std::fmt::Write, indent: Spacing) -> Result<(), std::fmt::Error> {
@@ -429,7 +429,14 @@ pub mod xml {
                 write!(buf, "/>")?;
             } else {
                 write!(buf, ">")?;
-                body.write_xml(buf, indent)?;
+                {
+                    let indent = if let Body::X(_) = body {
+                        indent.reindent()
+                    } else {
+                        indent
+                    };
+                    body.write_xml(buf, indent)?;
+                }
                 if !indent.is_whitespace_significant() {
                     write!(buf, "\n{indent}");
                 }
@@ -475,7 +482,7 @@ pub mod xml {
                         } else {
                             saw_one = true;
                         }
-                        x.write_xml(buf, indent.reindent())?
+                        x.write_xml(buf, indent)?
                     }
                 }
                 Body::Css(v) => {
