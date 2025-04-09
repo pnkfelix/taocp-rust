@@ -438,7 +438,7 @@ pub mod xml {
                     body.write_xml(buf, indent)?;
                 }
                 if !indent.is_whitespace_significant() {
-                    write!(buf, "\n{indent}");
+                    write!(buf, "\n{indent}")?;
                 }
                 write!(buf, "</{}>", tag.0)?;
             }
