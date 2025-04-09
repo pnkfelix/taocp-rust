@@ -317,7 +317,7 @@ pub mod css {
         }
     }
     impl Rule {
-        pub fn write_xml(&self, buf: &mut dyn std::fmt::Write, indent: Spacing) -> Result<(), std::fmt::Error> {
+        pub fn write_xml(&self, buf: &mut dyn std::fmt::Write, _indent: Spacing) -> Result<(), std::fmt::Error> {
             write!(buf, " .{} {} ", self.class.0, "{")?;
             for (k, v) in &self.attrs.0 {
                 write!(buf, " {}: {};", k, v)?;
