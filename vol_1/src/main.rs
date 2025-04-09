@@ -1,4 +1,5 @@
 #![feature(bigint_helper_methods)]
+#![allow(unused_comparisons, dead_code, unused)]
 
 mod sect_1_3_2;
 

@@ -1,3 +1,5 @@
+#![allow(dead_code, private_bounds, unused)]
+
 trait SubU32: Sized + Ord + Eq + Copy {
     fn as_u32(&self) -> u32;
 }

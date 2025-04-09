@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum Op {
     /// ⊥: 0; Contradiction; falsehood; antilogy; constant 0

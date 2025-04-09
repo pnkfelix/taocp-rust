@@ -19,6 +19,7 @@ mod pretty {
         }
     }
 
+    #[allow(dead_code)]
     impl Spacing {
         pub(crate) fn initial_indent(indent: u32) -> Self {
             Spacing {
@@ -175,6 +176,7 @@ impl<L: std::fmt::Display> BinTree<L> {
         write!(&mut buf, "}}").unwrap();
         buf
     }
+    #[allow(dead_code)]
     pub fn render_graphviz_contents(&self) -> String {
         let mut buf = String::new();
         let mut indexer = Indexer::new();
@@ -223,6 +225,7 @@ impl<L: std::fmt::Display> BinTree<L> {
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 struct Xy { x: u32, y: u32 }
+#[allow(dead_code)]
 impl Xy {
     fn new(x: u32, y: u32) -> Xy { Xy { x, y } }
     fn add_x(&self, x: u32) -> Xy { Xy { x: self.x + x, ..*self } }
@@ -237,6 +240,7 @@ impl Xy {
     }
 }
 
+#[allow(dead_code)]
 trait LayoutArea {
     fn height(&self) -> u32 { 1 }
     fn width(&self) -> u32 { 1 }
