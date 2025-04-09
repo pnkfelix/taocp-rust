@@ -592,7 +592,9 @@ fn layout_tests() {
 // before doing our comparison for test purposes. Its a bit fragile since the details of the normalization (or rather,
 // gaps thereof) can end up leaking into choices in the implementation itself about where, or where not, to insert
 // whitespace in order to compensate for this testing hack.
+#[cfg(test)]
 trait Norm { type Out; fn norm(&self) -> Self::Out; fn norm_step(&self) -> Self::Out; }
+#[cfg(test)]
 impl Norm for str {
     type Out = String;
     fn norm(&self) -> String {
