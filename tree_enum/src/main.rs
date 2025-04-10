@@ -2,6 +2,8 @@ use std::collections::{HashMap};
 use std::collections::hash_map::{Entry};
 use std::fmt::Write;
 
+// #region Pretty Printing
+
 mod pretty {
     #[derive(Copy, Clone, Debug)]
     pub struct Spacing {
@@ -41,12 +43,18 @@ mod pretty {
     }
 }
 
+// #endregion
+
+// #region BT BinTree Def'n
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct BinTree<L> {
     label: L,
     sibling: Option<Box<Self>>,
     first_child: Option<Box<Self>>,
 }
+
+// #endregion
 
 impl<L> BinTree<L> {
     fn leaf(l: L) -> Self {
@@ -69,6 +77,8 @@ impl<L> BinTree<L> {
         }
     }
 }
+
+// #region BT to S-exps
 
 use pretty::Spacing;
 
@@ -108,6 +118,10 @@ impl<L: std::fmt::Display> BinTree<L> {
     }
 }
 
+// #endregion
+
+// #region BT ASCII Art
+
 impl<L: std::fmt::Display> BinTree<L> {
     pub fn render_ascii_art(&self) -> String {
         self.render_ascii_art_with(String::new())
@@ -135,6 +149,10 @@ impl<L: std::fmt::Display> BinTree<L> {
         Ok(())
     }
 }
+
+// #endregion
+
+// #region Id, Indexer Def'n
 
 #[derive(Copy, Clone)]
 struct Id(usize);
@@ -165,6 +183,10 @@ impl std::fmt::Display for Id {
         write!(w, "id{}", self.0)
     }
 }
+
+// #endregion
+
+// #region BT Graphviz
 
 impl<L: std::fmt::Display> BinTree<L> {
     pub fn render_graphviz(&self) -> String {
@@ -198,6 +220,10 @@ impl<L: std::fmt::Display> BinTree<L> {
     }
 }
 
+// #endregion
+
+// #region BinTree Mermaid
+
 impl<L: std::fmt::Display> BinTree<L> {
     pub fn render_mermaid(&self) -> String {
         let mut buf = String::new();
@@ -223,6 +249,10 @@ impl<L: std::fmt::Display> BinTree<L> {
     }
 }
 
+// #endregion
+
+// 2d layout
+
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 struct Xy { x: u32, y: u32 }
 #[allow(dead_code)]
@@ -240,6 +270,7 @@ impl Xy {
     }
 }
 
+
 #[allow(dead_code)]
 trait LayoutArea {
     fn height(&self) -> u32 { 1 }
@@ -251,6 +282,10 @@ impl LayoutArea for str {
     fn height(&self) -> u32 { 1 + u32::try_from(bytecount::count(self.as_bytes(), b'\n')).unwrap() }
     fn width(&self) -> u32 { self.len() as u32 }
 }
+
+// #endregion
+
+// #region BT layout
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 struct LayoutAnswer<L> {
@@ -289,6 +324,10 @@ impl<L: Clone + LayoutArea> BinTree<L> {
     }
 }
 
+// #endregion
+
+// #region key-value attributes
+
 pub mod attrs { 
     #[derive(Clone, PartialEq, Eq, Debug)]
     pub struct Attrs(pub Vec<(String, String)>);
@@ -303,6 +342,10 @@ pub mod attrs {
         ])
     }
 }
+
+// #endregion
+
+// #region CSS style
 
 pub mod css {
     use super::attrs::Attrs;
@@ -332,9 +375,15 @@ pub mod css {
     }
 }
 
+// #endregion
+
+
 pub mod xml {
     use super::attrs::Attrs;
     use super::css;
+
+    // #region XML def'n
+
     #[derive(Clone, PartialEq, Eq, Debug)]
     pub struct Tag(pub String);
     impl Tag {
@@ -349,6 +398,20 @@ pub mod xml {
         pub attrs: Attrs,
         pub body: Body,
     }
+
+    #[derive(Clone, PartialEq, Eq, Debug)]
+    pub enum Body {
+        X(Vec<Xexpr>),
+        /// This is only meant to be used with things like the `<style>` tag.
+        Css(Vec<css::Rule>),
+        Esc(Vec<String>),
+        Raw(String),
+    }
+
+    // #endregion
+
+    // #region Xexpr ctors
+
     impl Xexpr {
         pub fn style(items: Vec<css::Rule>) -> Xexpr {
             Xexpr {
@@ -390,19 +453,17 @@ pub mod xml {
             }
         }
     }
-    #[derive(Clone, PartialEq, Eq, Debug)]
-    pub enum Body {
-        X(Vec<Xexpr>),
-        /// This is only meant to be used with things like the `<style>` tag.
-        Css(Vec<css::Rule>),
-        Esc(Vec<String>),
-        Raw(String),
-    }
+
+    // #endregion
+
     impl Body {
         const EMPTY: Body = Body::X(vec![]);
         fn empty() -> Body {
             Body::X(vec![])
         }
+    }
+
+    impl Body {
         fn is_empty(&self) -> bool {
             match self {
                 Body::X(v) => v.len() == 0,
@@ -412,6 +473,9 @@ pub mod xml {
             }
         }
     }
+
+    // #region Xexpr rendering
+
     use super::pretty::Spacing;
     impl Xexpr {
         pub fn render_xml(&self) -> String {
@@ -501,7 +565,11 @@ pub mod xml {
             Ok(())
         }
     }
+
+    // #endregion
 }
+
+// #region BT to SVG
 
 impl<L: std::fmt::Display> LayoutAnswer<L> {
     pub fn render_svg(&self) -> xml::Xexpr {
@@ -556,6 +624,10 @@ impl<L: std::fmt::Display> LayoutAnswer<L> {
     }
 }
 
+// #endregion
+
+// #region Sample BTs
+
 fn sect_2_3_2() -> BinTree<char> {
     BinTree::full('A', BinTree::only_child('D',
                                            BinTree::full('E', BinTree::full('F', BinTree::leaf('G'),
@@ -564,6 +636,10 @@ fn sect_2_3_2() -> BinTree<char> {
                   BinTree::childless('B', BinTree::only_child('C',
                                                               BinTree::leaf('K'))))
 }
+
+// #endregion
+
+// #region BT Sexp Tests
 
 #[cfg(feature = "s_exp")]
 #[test]
