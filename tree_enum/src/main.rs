@@ -729,11 +729,36 @@ fn svg_tests() {
  </svg>"#.norm());
 }
 
-fn main() {
+fn main() -> std::io::Result<()> {
+    use std::fs::File;
+    use std::io::Write;
+    use std::path::PathBuf;
+    let prefix: PathBuf = if let Some(path) = std::env::args().skip(1).next() {
+        println!("Emitting to {:?}", path);
+        path.into()
+    } else {
+        println!("Emitting to current dir");
+        ".".into()
+    };
+    fn write_file(prefix: &PathBuf, path_str: &str, prefix_suffix: Option<(&str, &str)>, value: impl std::fmt::Display) -> std::io::Result<()> {
+        let path: PathBuf = prefix.into();
+        let path = path.join(path_str);
+        // println!("attempting to create file at {path:?}");
+        let mut file = File::create(&path)?;
+        // println!("successful create of file at {path:?}");
+        if let Some((prefix, suffix)) = prefix_suffix {
+            writeln!(file, "{}{}{}", prefix, value, suffix)?;
+        } else {
+            writeln!(file, "{}", value)?;
+        }
+        Ok(())
+    }
     #[cfg(feature = "s_exp")]
-    println!("{}", BinTree::only_child('A', BinTree::leaf('B')).render_binary_sexp());
-    println!("{}", sect_2_3_2().render_ascii_art());
-    println!("{}", sect_2_3_2().render_graphviz());
-    println!("{}", sect_2_3_2().render_mermaid());
-    println!("{}", sect_2_3_2().layout_naively().render_svg().render_xml());
+    write_file(&prefix, "a_b.s_exp.txt", None, BinTree::only_child('A', BinTree::leaf('B')).render_binary_sexp())?;
+    write_file(&prefix, "sect_2_3_2.ascii_art.txt", None, sect_2_3_2().render_ascii_art())?;
+    write_file(&prefix, "sect_2_3_2.graphviz.dot", None, sect_2_3_2().render_graphviz())?;
+    write_file(&prefix, "sect_2_3_2.mermaid.md", Some(("```mermaid\n","\n```\n")), sect_2_3_2().render_mermaid())?;
+    write_file(&prefix, "sect_2_3_2.naive_svg.xml", None, sect_2_3_2().layout_naively().render_svg().render_xml())?;
+
+    Ok(())
 }
