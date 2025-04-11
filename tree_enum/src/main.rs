@@ -229,7 +229,7 @@ impl<L: std::fmt::Display> BinTree<L> {
         let mut buf = String::new();
         let mut indexer = Indexer::new();
         let indent = Spacing::four();
-        write!(&mut buf, "flowchart G \n").unwrap();
+        write!(&mut buf, "flowchart \n").unwrap();
         self.write_mermaid(&mut buf, indent, &mut indexer).unwrap();
         write!(&mut buf, "").unwrap();
         buf
