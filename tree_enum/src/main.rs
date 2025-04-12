@@ -293,14 +293,36 @@ struct LayoutAnswer<L> {
     bounding_box: Xy,
 }
 
-impl<L: Clone + LayoutArea> BinTree<L> {
+impl<L: Clone> LayoutAnswer<L> {
+    fn find_all_outside_bounds(&self, bounding_box: Xy) -> Vec<&(L, Xy)> {
+        let mut vec = Vec::new();
+        let mut todo = vec![&self.tree];
+        while let Some(next) = todo.pop() {
+            if let Some(sib) = &next.sibling {
+                todo.push(sib);
+            }
+            if let Some(child) = &next.first_child {
+                todo.push(child);
+            }
+            if next.label.1.x >= bounding_box.x ||
+                next.label.1.y >= bounding_box.y
+            {
+                vec.push(&next.label);
+            }
+        }
+        vec
+    }
+}
+
+impl<L: Clone + LayoutArea + std::fmt::Debug> BinTree<L> {
     pub fn layout_naively(&self) -> LayoutAnswer<L> {
         self.layout(Xy::new(0, 0), Xy::new(1, 1))
     }
     pub fn layout(&self, start: Xy, space: Xy) -> LayoutAnswer<L> {
         let (sibling, bb1) =
             if let Some(sibling) = &self.sibling {
-                let LayoutAnswer { tree, bounding_box: bb1 } = sibling.layout(start.add_x(space.x), space);
+                let answer = sibling.layout(start.add_x(space.x), space);
+                let LayoutAnswer { tree, bounding_box: bb1 } = answer;
                 (Some(Box::new(tree)), bb1)
         
             } else {
@@ -308,19 +330,32 @@ impl<L: Clone + LayoutArea> BinTree<L> {
             };
         let (first_child, bb2) =
             if let Some(child) = &self.first_child {
-                let LayoutAnswer { tree, bounding_box: bb2 } = child.layout(start.with_y(bb1.y + space.y), space);
+                let answer = child.layout(start.with_y(bb1.y + space.y), space);
+                let LayoutAnswer { tree, bounding_box: bb2 } = answer;
                 (Some(Box::new(tree)), bb2)
             } else {
                 (None, start)
             };
-        LayoutAnswer {
+        let mut bounds = bb1.max(bb2);
+        if start.x == bounds.x {
+            bounds.x += space.x;
+        }
+        if start.y == bounds.y {
+            bounds.y += space.y;
+        }
+        let answer = LayoutAnswer {
             tree: BinTree {
                 label: (self.label.clone(), start),
                 sibling,
                 first_child,
             },
-            bounding_box: bb1.max(bb2),
+            bounding_box: bounds,
+        };
+        let outside = answer.find_all_outside_bounds(bounds);
+        if outside.len() > 0 {
+            println!("bounds: {bounds:?} outside: {outside:?}");
         }
+        answer
     }
 }
 
